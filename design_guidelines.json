@@ -1,0 +1,155 @@
+{
+  "project_name": "Queue Management System App",
+  "platform": "hybrid_fullstack (Expo React Native Mobile + React Web TV Display)",
+  "theme": "light",
+  "archetype": "3 (Pastel & Soft) with iOS Glassmorphism",
+  "emotional_tone": "Calm, approachable, efficient, optimistic, modern futuristic",
+  "colors": {
+    "background": {
+      "primary": "#FCFCFD",
+      "secondary": "#F3F4F6",
+      "glass": "rgba(255, 255, 255, 0.75)"
+    },
+    "brand": {
+      "primary": "#B4A6F8",
+      "primary_hover": "#A292F0",
+      "primary_active": "#8A76E8",
+      "secondary": "#AEC6CF"
+    },
+    "accent": {
+      "success": "#A7F3D0",
+      "waiting": "#FECACA",
+      "processing": "#FDE68A"
+    },
+    "text": {
+      "primary": "#1C1C1E",
+      "secondary": "#8E8E93",
+      "inverse": "#FFFFFF",
+      "brand": "#6A52D8"
+    },
+    "border": {
+      "default": "rgba(0, 0, 0, 0.05)",
+      "glass": "rgba(255, 255, 255, 0.4)"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "heading": "Outfit, system-ui, sans-serif",
+      "body": "Manrope, SF Pro Display, system-ui, sans-serif",
+      "mono": "ui-monospace, SFMono-Regular, Menlo, monospace"
+    },
+    "scale": {
+      "h1_mobile": "text-4xl tracking-tight font-black",
+      "h2_mobile": "text-2xl tracking-tight font-bold",
+      "h3_mobile": "text-xl font-semibold",
+      "body_large": "text-lg",
+      "body_base": "text-base",
+      "body_small": "text-sm",
+      "tv_current_number": "text-[12vw] font-black tracking-tighter leading-none",
+      "tv_heading": "text-6xl tracking-tight font-bold",
+      "tv_subheading": "text-4xl font-medium"
+    }
+  },
+  "spacing_and_layout": {
+    "mobile": {
+      "screen_padding": "p-4 sm:p-6",
+      "card_padding": "p-5",
+      "gap_standard": "gap-4",
+      "gap_large": "gap-8"
+    },
+    "tv_landscape": {
+      "screen_padding": "p-12",
+      "grid_columns": "grid-cols-12",
+      "now_serving_span": "col-span-8",
+      "next_queue_span": "col-span-4",
+      "gap_standard": "gap-12"
+    },
+    "radius": {
+      "button": "rounded-2xl",
+      "card": "rounded-3xl",
+      "bottom_sheet": "rounded-t-[2.5rem]"
+    }
+  },
+  "surfaces": {
+    "glass_panel": {
+      "background": "bg-white/70",
+      "backdrop_filter": "backdrop-blur-2xl backdrop-saturate-150",
+      "border": "border border-white/40",
+      "shadow": "shadow-[0_8px_32px_rgba(0,0,0,0.04)]"
+    },
+    "solid_card": {
+      "background": "bg-white",
+      "border": "border border-black/5",
+      "shadow": "shadow-sm"
+    },
+    "active_queue_card": {
+      "background": "bg-brand-primary/10",
+      "border": "border border-brand-primary/20",
+      "shadow": "shadow-md"
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-[#B4A6F8] text-white rounded-2xl px-6 py-4 font-bold active:scale-95 transition-transform",
+      "secondary": "bg-[#F3F4F6] text-[#1C1C1E] rounded-2xl px-6 py-4 font-semibold active:scale-95 transition-transform",
+      "glass": "bg-white/50 backdrop-blur-md border border-white/50 text-[#1C1C1E] rounded-2xl px-6 py-4 font-semibold"
+    },
+    "inputs": {
+      "text_field": "bg-white border border-black/5 rounded-2xl px-4 py-4 text-base focus:border-[#B4A6F8] focus:ring-2 focus:ring-[#B4A6F8]/20 transition-all",
+      "search_bar": "bg-[#F3F4F6] border-none rounded-full px-5 py-3 text-base"
+    },
+    "tv_display": {
+      "now_serving_card": "bg-white/80 backdrop-blur-xl rounded-[3rem] border border-white/50 shadow-2xl flex flex-col items-center justify-center p-16",
+      "next_in_line_list": "flex flex-col gap-4",
+      "next_item": "bg-white/60 backdrop-blur-lg rounded-2xl p-6 flex justify-between items-center border border-white/40"
+    }
+  },
+  "motion": {
+    "transitions": {
+      "default": "transition-all duration-300 ease-out",
+      "spring": "spring config: mass 1, stiffness 170, damping 26 (for framer-motion or react-native-reanimated)"
+    },
+    "micro_interactions": {
+      "button_press": "scale down to 0.95",
+      "list_item_enter": "fade in and translate up 10px",
+      "tv_number_change": "scale up 1.1 then back to 1.0, color flash to mint green"
+    }
+  },
+  "media": {
+    "backgrounds": {
+      "pastel_abstract": {
+        "url": "https://images.unsplash.com/photo-1763931768159-606a05c30732?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDZ8MHwxfHNlYXJjaHwyfHxwYXN0ZWwlMjBhYnN0cmFjdCUyMGxpcXVpZCUyMGJhY2tncm91bmR8ZW58MHx8fHwxNzc2Nzg5MTczfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract pink and blue wavy liquid pattern used for welcome screen and TV display background"
+      },
+      "pastel_gradient": {
+        "url": "https://images.unsplash.com/photo-1763615445790-64c644be359b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA0MTJ8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMHBhc3RlbCUyMGdyYWRpZW50fGVufDB8fHx8MTc3Njc4OTE3M3ww&ixlib=rb-4.1.0&q=85",
+        "description": "Soft pastel gradient used for subtle background overlays or merchant headers"
+      }
+    },
+    "illustrations": {
+      "cafe_counter": {
+        "url": "https://images.unsplash.com/photo-1760326652193-bc25f0fe4a8e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODB8MHwxfHNlYXJjaHwyfHxtb2Rlcm4lMjBtaW5pbWFsJTIwY2FmZSUyMGNvdW50ZXJ8ZW58MHx8fHwxNzc2Nzg5MTYyfDA&ixlib=rb-4.1.0&q=85",
+        "description": "Modern minimal cafe counter. Use as placeholder for Merchant profile/thumbnail."
+      },
+      "person_using_app": {
+        "url": "https://images.pexels.com/photos/12955814/pexels-photo-12955814.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Person using phone at a cafe. Use in onboarding/welcome screens."
+      }
+    }
+  },
+  "instructions_to_main_agent": [
+    "This is an Expo React Native app combined with a web dashboard/TV Display. Use cross-platform compatible styling (e.g. NativeWind) or adapt the Tailwind classes provided to standard StyleSheet/Tailwind logic.",
+    "For Mobile App screens (Welcome, Customer Browse, Merchant Dashboard), utilize the 'mobile' spacing and 'glass_panel' surface properties. Use rounded-t-[2.5rem] for bottom sheets which are crucial for this iOS aesthetic.",
+    "For the TV Display screen (React Web landscape), use the 'tv_landscape' spacing. The layout must be grid-cols-12, heavily utilizing the 'pastel_abstract' background image as a full-screen underlay with a white/20 glassmorphism overlay to ensure text readability.",
+    "Ensure contrast is maintained. Since the primary color is a soft lavender (#B4A6F8), use dark text (#1C1C1E) instead of white text inside the soft colored cards unless the background is sufficiently dark.",
+    "Do NOT use 'Inter' for headings. Use Outfit or system-ui rounded sans-serif. Apply tracking-tight to all headings > 24px.",
+    "Google OAuth and Custom JWT buttons must be prominent on the Welcome screen, stacked with the primary button style.",
+    "All interactive elements MUST include test attributes (e.g. testID='login-button' for RN, or data-testid='login-button' for web)."
+  ],
+  "test_attributes": {
+    "welcome_screen": ["login-email-input", "login-password-input", "login-submit-button", "google-oauth-button", "register-link"],
+    "customer_flow": ["merchant-list-item", "service-category-select", "join-queue-button", "queue-status-card", "cancel-queue-button"],
+    "merchant_dashboard": ["call-next-button", "mark-served-button", "skip-number-button", "active-queue-list"],
+    "tv_display": ["now-serving-number", "next-in-line-list"]
+  }
+}
