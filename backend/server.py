@@ -463,13 +463,13 @@ async def create_merchant(body: MerchantIn, user: dict = Depends(require_role("m
 
 @api.get("/merchants")
 async def list_merchants():
-    cursor = db.merchants.find({"status": "approved"}, {"_id": 0})
+    cursor = db.merchants.find({"status": "approved"}, {"_id": 0}).limit(200)
     return [merchant_public(m) async for m in cursor]
 
 
 @api.get("/merchants/mine")
 async def my_merchants(user: dict = Depends(require_role("merchant", "admin"))):
-    cursor = db.merchants.find({"owner_id": user["id"]}, {"_id": 0})
+    cursor = db.merchants.find({"owner_id": user["id"]}, {"_id": 0}).limit(100)
     return [merchant_public(m) async for m in cursor]
 
 
@@ -525,13 +525,13 @@ async def delete_category(merchant_id: str, category_id: str, user: dict = Depen
 # ---------------------------------------------------------------------------
 @api.get("/packages")
 async def public_packages():
-    cursor = db.packages.find({"active": True}, {"_id": 0}).sort("price_idr", 1)
+    cursor = db.packages.find({"active": True}, {"_id": 0}).sort("price_idr", 1).limit(50)
     return [package_public(p) async for p in cursor]
 
 
 @api.get("/admin/packages")
 async def admin_list_packages(user: dict = Depends(require_role("admin"))):
-    cursor = db.packages.find({}, {"_id": 0}).sort("created_at", -1)
+    cursor = db.packages.find({}, {"_id": 0}).sort("created_at", -1).limit(200)
     return [package_public(p) async for p in cursor]
 
 
@@ -577,7 +577,7 @@ async def active_subscription(user_id: str) -> Optional[dict]:
 
 @api.get("/subscriptions/mine")
 async def my_subscriptions(user: dict = Depends(get_current_user)):
-    cursor = db.subscriptions.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1)
+    cursor = db.subscriptions.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).limit(50)
     subs = [sub_public(s) async for s in cursor]
     active = await active_subscription(user["id"])
     return {"subscriptions": subs, "active": sub_public(active) if active else None}
@@ -585,7 +585,7 @@ async def my_subscriptions(user: dict = Depends(get_current_user)):
 
 @api.get("/admin/subscriptions")
 async def admin_subscriptions(user: dict = Depends(require_role("admin"))):
-    cursor = db.subscriptions.find({}, {"_id": 0}).sort("created_at", -1)
+    cursor = db.subscriptions.find({}, {"_id": 0}).sort("created_at", -1).limit(500)
     out = []
     async for s in cursor:
         u = await db.users.find_one({"id": s["user_id"]}, {"_id": 0, "password_hash": 0})
@@ -901,7 +901,7 @@ async def my_active_queues(user: dict = Depends(get_current_user)):
     cursor = db.queue_entries.find(
         {"user_id": user["id"], "status": {"$in": ["waiting", "called"]}},
         {"_id": 0},
-    ).sort("created_at", -1)
+    ).sort("created_at", -1).limit(50)
     entries = []
     async for e in cursor:
         ahead = await db.queue_entries.count_documents({
@@ -927,7 +927,7 @@ async def merchant_queue(merchant_id: str, user: dict = Depends(get_current_user
         raise HTTPException(status_code=404, detail="Merchant not found")
     if user["role"] != "admin" and m["owner_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Forbidden")
-    cursor = db.queue_entries.find({"merchant_id": merchant_id}, {"_id": 0}).sort("queue_number", 1)
+    cursor = db.queue_entries.find({"merchant_id": merchant_id}, {"_id": 0}).sort("queue_number", 1).limit(500)
     return [entry_public(e) async for e in cursor]
 
 
@@ -1016,13 +1016,13 @@ async def tv_display(merchant_id: str):
 # ---------------------------------------------------------------------------
 @api.get("/admin/users")
 async def admin_users(user: dict = Depends(require_role("admin"))):
-    cursor = db.users.find({}, {"_id": 0, "password_hash": 0})
+    cursor = db.users.find({}, {"_id": 0, "password_hash": 0}).limit(1000)
     return [user_public(u) async for u in cursor]
 
 
 @api.get("/admin/merchants")
 async def admin_merchants(user: dict = Depends(require_role("admin"))):
-    cursor = db.merchants.find({}, {"_id": 0})
+    cursor = db.merchants.find({}, {"_id": 0}).limit(500)
     return [merchant_public(m) async for m in cursor]
 
 
@@ -1056,7 +1056,7 @@ async def admin_stats(user: dict = Depends(require_role("admin"))):
 async def admin_queue_stats(user: dict = Depends(require_role("admin"))):
     """Per-merchant queue counts (today)."""
     today_start = datetime.combine(now_utc().date(), datetime.min.time()).replace(tzinfo=timezone.utc)
-    cursor = db.merchants.find({}, {"_id": 0})
+    cursor = db.merchants.find({}, {"_id": 0}).limit(500)
     out = []
     async for m in cursor:
         mid = m["id"]
