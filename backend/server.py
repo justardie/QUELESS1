@@ -467,9 +467,11 @@ async def call_next(merchant_id: str, category_id: Optional[str] = None,
     )
     if not nxt:
         return {"entry": None}
-    entry = await db.queue_entries.find_one({"id": nxt["id"] if "id" in nxt else q}, {"_id": 0})
-    # Safer re-read:
-    entry = await db.queue_entries.find_one({"merchant_id": merchant_id, "status": "called"}, {"_id": 0}, sort=[("called_at", -1)])
+    entry = await db.queue_entries.find_one(
+        {"merchant_id": merchant_id, "status": "called"},
+        {"_id": 0},
+        sort=[("called_at", -1)],
+    )
     return {"entry": entry_public(entry) if entry else None}
 
 
