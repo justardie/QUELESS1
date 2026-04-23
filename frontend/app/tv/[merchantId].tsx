@@ -1,115 +1,116 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, useWindowDimensions } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, useWindowDimensions, Image } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { theme } from '../../src/theme';
+import { useColors, iosFontFamily } from '../../src/themeContext';
 import { api } from '../../src/api';
 
 export default function TVDisplay() {
   const { merchantId } = useLocalSearchParams<{ merchantId: string }>();
+  const c = useColors();
   const [data, setData] = useState<any | null>(null);
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const landscape = width > 700;
-  const lastCalled = useRef<number | null>(null);
 
   useEffect(() => {
     let alive = true;
     async function tick() {
-      try {
-        const d = await api.tv(merchantId!);
-        if (!alive) return;
-        const now = d.now_serving?.queue_number ?? null;
-        if (now !== lastCalled.current && now !== null) {
-          lastCalled.current = now;
-          // flash via state trigger is handled by re-render
-        }
-        setData(d);
-      } catch {}
+      try { const d = await api.tv(merchantId!); if (alive) setData(d); } catch {}
     }
     tick();
     const t = setInterval(tick, 2500);
     return () => { alive = false; clearInterval(t); };
   }, [merchantId]);
 
-  if (!data) return <View style={styles.center}><ActivityIndicator color={theme.colors.brand} /></View>;
+  if (!data) {
+    return <View style={styles.center}><ActivityIndicator color={c.primary} /></View>;
+  }
 
+  const bgUrl = data.merchant?.tv_photo_url || data.merchant?.photo_url || '';
   const nowNum = data.now_serving?.queue_number;
-  const numSize = landscape ? Math.min(width * 0.3, 480) : Math.min(width * 0.6, 260);
+  const numSize = landscape ? Math.min(width * 0.28, 420) : Math.min(width * 0.55, 260);
 
   return (
-    <LinearGradient colors={['#EFE9FF', '#FCE7F3', '#E0F2FE']} style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: '#0F172A' }}>
+      {bgUrl ? (
+        <Image source={{ uri: bgUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" blurRadius={landscape ? 0 : 10} />
+      ) : (
+        <LinearGradient colors={[c.primaryDark, '#0F172A']} style={StyleSheet.absoluteFillObject} />
+      )}
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(15,23,42,0.55)' }]} />
+
       <View style={[styles.container, { flexDirection: landscape ? 'row' : 'column' }]}>
-        {/* Now serving panel */}
+        {/* Now serving */}
         <View style={[styles.nowPanel, { flex: landscape ? 2 : undefined, padding: landscape ? 40 : 24 }]}>
-          <View style={styles.nowCard}>
-            <Text style={styles.merchantTitle}>{data.merchant.name}</Text>
-            <Text style={styles.nowLabel}>NOW SERVING</Text>
+          <View style={[styles.nowCard, { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' }]}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+              {data.merchant.logo_url ? (
+                <Image source={{ uri: data.merchant.logo_url }} style={{ width: 48, height: 48, borderRadius: 12 }} />
+              ) : null}
+              <Text style={[styles.merchantTitle, { fontFamily: iosFontFamily }]}>{data.merchant.name}</Text>
+            </View>
+            <Text style={[styles.nowLabel, { fontFamily: iosFontFamily, color: c.accent }]}>NOW SERVING</Text>
             {nowNum ? (
-              <Text testID="now-serving-number" style={[styles.nowNumber, { fontSize: numSize }]}>
-                #{nowNum}
-              </Text>
+              <Text testID="now-serving-number" style={[styles.nowNumber, { fontSize: numSize, fontFamily: iosFontFamily }]}>#{nowNum}</Text>
             ) : (
-              <Text testID="now-serving-number" style={[styles.nowNumber, { fontSize: numSize * 0.6, color: theme.colors.textMuted }]}>—</Text>
+              <Text testID="now-serving-number" style={[styles.nowNumber, { fontSize: numSize * 0.5, color: 'rgba(255,255,255,0.4)', fontFamily: iosFontFamily }]}>—</Text>
             )}
             {data.now_serving && (
-              <Text style={styles.nowCategory}>{data.now_serving.category_name}</Text>
+              <Text style={[styles.nowCategory, { fontFamily: iosFontFamily }]}>{data.now_serving.category_name}</Text>
             )}
           </View>
         </View>
 
         {/* Upcoming */}
         <View style={[styles.sidePanel, { flex: landscape ? 1 : undefined, padding: landscape ? 32 : 20 }]}>
-          <Text style={styles.sideTitle}>Up next</Text>
+          <Text style={[styles.sideTitle, { fontFamily: iosFontFamily }]}>Up next</Text>
           <View testID="next-in-line-list" style={{ gap: 10 }}>
             {data.upcoming.length === 0 && (
-              <Text style={{ color: theme.colors.textMuted, fontSize: 18 }}>No one in queue</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 18, fontFamily: iosFontFamily }}>No one in queue</Text>
             )}
             {data.upcoming.slice(0, 6).map((e: any) => (
-              <View key={e.id} style={styles.upItem}>
-                <Text style={styles.upNum}>#{e.queue_number}</Text>
-                <Text style={styles.upCat}>{e.category_name}</Text>
+              <View key={e.id} style={[styles.upItem, { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' }]}>
+                <Text style={[styles.upNum, { fontFamily: iosFontFamily }]}>#{e.queue_number}</Text>
+                <Text style={[styles.upCat, { fontFamily: iosFontFamily }]}>{e.category_name}</Text>
               </View>
             ))}
           </View>
 
           {data.recent_served?.length > 0 && (
             <>
-              <Text style={[styles.sideTitle, { marginTop: 24, fontSize: 20, opacity: 0.5 }]}>Recently served</Text>
+              <Text style={[styles.sideTitle, { marginTop: 24, fontSize: 20, opacity: 0.6, fontFamily: iosFontFamily }]}>Recently served</Text>
               <View style={{ gap: 6 }}>
                 {data.recent_served.map((e: any) => (
-                  <Text key={e.id} style={styles.recent}>#{e.queue_number} • {e.category_name}</Text>
+                  <Text key={e.id} style={[styles.recent, { fontFamily: iosFontFamily }]}>#{e.queue_number} • {e.category_name}</Text>
                 ))}
               </View>
             </>
           )}
         </View>
       </View>
-    </LinearGradient>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F172A' },
   nowPanel: { alignItems: 'center', justifyContent: 'center' },
   nowCard: {
-    backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: 40,
-    padding: 40, alignItems: 'center', width: '100%',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)',
-    shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 40, shadowOffset: { width: 0, height: 20 },
+    borderRadius: 40, padding: 40, alignItems: 'center', width: '100%',
+    borderWidth: 1,
   },
-  merchantTitle: { fontSize: 36, fontWeight: '800', color: theme.colors.text, letterSpacing: -1, marginBottom: 6, textAlign: 'center' },
-  nowLabel: { fontSize: 18, color: theme.colors.brandDark, fontWeight: '800', letterSpacing: 6, marginBottom: 10 },
-  nowNumber: { fontWeight: '900', color: theme.colors.text, letterSpacing: -12, lineHeight: undefined, includeFontPadding: false, textAlign: 'center' },
-  nowCategory: { fontSize: 28, color: theme.colors.textMuted, fontWeight: '600', marginTop: 8 },
+  merchantTitle: { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
+  nowLabel: { fontSize: 16, fontWeight: '800', letterSpacing: 6, marginBottom: 10 },
+  nowNumber: { fontWeight: '900', color: '#fff', letterSpacing: -12, includeFontPadding: false, textAlign: 'center' },
+  nowCategory: { fontSize: 26, color: 'rgba(255,255,255,0.8)', fontWeight: '600', marginTop: 8 },
   sidePanel: { justifyContent: 'flex-start' },
-  sideTitle: { fontSize: 28, fontWeight: '800', color: theme.colors.text, marginBottom: 16, letterSpacing: -0.5 },
+  sideTitle: { fontSize: 26, fontWeight: '800', color: '#fff', marginBottom: 16, letterSpacing: -0.5 },
   upItem: {
-    backgroundColor: 'rgba(255,255,255,0.6)', borderRadius: 20, paddingHorizontal: 20, paddingVertical: 16,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)',
+    borderRadius: 20, paddingHorizontal: 20, paddingVertical: 16, borderWidth: 1,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  upNum: { fontSize: 32, fontWeight: '900', color: theme.colors.text, letterSpacing: -1 },
-  upCat: { fontSize: 18, color: theme.colors.textMuted, fontWeight: '600' },
-  recent: { fontSize: 16, color: theme.colors.textMuted },
+  upNum: { fontSize: 30, fontWeight: '900', color: '#fff', letterSpacing: -1 },
+  upCat: { fontSize: 17, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
+  recent: { fontSize: 15, color: 'rgba(255,255,255,0.5)' },
 });

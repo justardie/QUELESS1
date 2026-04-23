@@ -38,6 +38,48 @@ ACCESS_TTL = timedelta(days=7)
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
+# ---------------------------------------------------------------------------
+# Available themes (admin picks one)
+# ---------------------------------------------------------------------------
+THEMES = {
+    "slate_emerald": {
+        "key": "slate_emerald", "label": "Slate & Emerald",
+        "primary": "#0F766E", "primaryDark": "#0B5953", "soft": "#D1FAE5",
+        "bg": "#F8FAFC", "text": "#0F172A", "muted": "#64748B",
+        "accent": "#10B981",
+    },
+    "navy_gold": {
+        "key": "navy_gold", "label": "Navy & Gold",
+        "primary": "#1E3A8A", "primaryDark": "#1E293B", "soft": "#DBEAFE",
+        "bg": "#F8FAFC", "text": "#0F172A", "muted": "#64748B",
+        "accent": "#D97706",
+    },
+    "graphite": {
+        "key": "graphite", "label": "Graphite Mono",
+        "primary": "#1F2937", "primaryDark": "#111827", "soft": "#E5E7EB",
+        "bg": "#FAFAFA", "text": "#111827", "muted": "#6B7280",
+        "accent": "#EF4444",
+    },
+    "plum": {
+        "key": "plum", "label": "Plum & Lavender",
+        "primary": "#6D28D9", "primaryDark": "#4C1D95", "soft": "#EDE9FE",
+        "bg": "#FAFAFC", "text": "#1E1B4B", "muted": "#6B7280",
+        "accent": "#EC4899",
+    },
+    "teal_coral": {
+        "key": "teal_coral", "label": "Teal & Coral",
+        "primary": "#0891B2", "primaryDark": "#155E75", "soft": "#CFFAFE",
+        "bg": "#F8FAFC", "text": "#0C4A6E", "muted": "#64748B",
+        "accent": "#F97316",
+    },
+}
+
+DEFAULT_SETTINGS = {
+    "app_logo_url": "",
+    "theme_key": "slate_emerald",
+    "app_name": "Lineup",
+}
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -46,7 +88,9 @@ def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def iso(dt: datetime) -> str:
+def iso(dt: Optional[datetime]):
+    if dt is None:
+        return None
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=timezone.utc)
     return dt.isoformat()
@@ -65,11 +109,8 @@ def verify_password(password: str, hashed: str) -> bool:
 
 def create_token(user_id: str, email: str, role: str) -> str:
     payload = {
-        "sub": user_id,
-        "email": email,
-        "role": role,
-        "exp": now_utc() + ACCESS_TTL,
-        "type": "access",
+        "sub": user_id, "email": email, "role": role,
+        "exp": now_utc() + ACCESS_TTL, "type": "access",
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
 
@@ -91,6 +132,19 @@ async def get_current_user(
     return user
 
 
+async def optional_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
+) -> Optional[dict]:
+    if not credentials or not credentials.credentials:
+        return None
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALG])
+        user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
+        return user
+    except jwt.PyJWTError:
+        return None
+
+
 def require_role(*roles: str):
     async def dep(user: dict = Depends(get_current_user)):
         if user["role"] not in roles:
@@ -105,6 +159,8 @@ def require_role(*roles: str):
 Role = Literal["admin", "merchant", "customer"]
 MerchantStatus = Literal["pending", "approved", "rejected", "suspended"]
 QueueStatus = Literal["waiting", "called", "served", "skipped", "cancelled"]
+PaymentStatus = Literal["pending", "paid", "failed", "expired"]
+SubStatus = Literal["active", "expired", "suspended"]
 
 
 class RegisterIn(BaseModel):
@@ -129,53 +185,49 @@ class CategoryIn(BaseModel):
     avg_service_minutes: int = 5
 
 
-class Category(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    avg_service_minutes: int = 5
-
-
 class MerchantIn(BaseModel):
     name: str
     description: Optional[str] = ""
     address: Optional[str] = ""
-    image_url: Optional[str] = ""
-
-
-class Merchant(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    owner_id: str
-    name: str
-    description: str = ""
-    address: str = ""
-    image_url: str = ""
-    status: MerchantStatus = "pending"
-    categories: List[Category] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=now_utc)
+    logo_url: Optional[str] = ""
+    photo_url: Optional[str] = ""
+    tv_photo_url: Optional[str] = ""
+    hours_text: Optional[str] = ""
+    is_open: Optional[bool] = True
 
 
 class JoinQueueIn(BaseModel):
     merchant_id: str
     category_id: str
-    customer_name: Optional[str] = None  # guest name if not member
-
-
-class QueueEntry(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    merchant_id: str
-    category_id: str
-    category_name: str
-    user_id: Optional[str] = None
-    customer_name: str
-    queue_number: int
-    status: QueueStatus = "waiting"
-    created_at: datetime = Field(default_factory=now_utc)
-    called_at: Optional[datetime] = None
-    served_at: Optional[datetime] = None
+    customer_name: Optional[str] = None
 
 
 class UpdateMerchantStatusIn(BaseModel):
     status: MerchantStatus
+
+
+class SettingsIn(BaseModel):
+    app_logo_url: Optional[str] = None
+    theme_key: Optional[str] = None
+    app_name: Optional[str] = None
+
+
+class PackageIn(BaseModel):
+    name: str
+    description: Optional[str] = ""
+    price_idr: int = Field(ge=0)
+    quota_count: int = Field(ge=1)
+    duration_days: int = Field(ge=1)
+    active: bool = True
+
+
+class PaymentCreateIn(BaseModel):
+    package_id: str
+
+
+class UpdateSubIn(BaseModel):
+    status: Optional[SubStatus] = None
+    credits_remaining: Optional[int] = None
 
 
 # ---------------------------------------------------------------------------
@@ -183,41 +235,61 @@ class UpdateMerchantStatusIn(BaseModel):
 # ---------------------------------------------------------------------------
 def user_public(u: dict) -> dict:
     return {
-        "id": u["id"],
-        "email": u["email"],
-        "name": u["name"],
-        "role": u["role"],
-        "created_at": iso(u["created_at"]) if isinstance(u.get("created_at"), datetime) else u.get("created_at"),
+        "id": u["id"], "email": u["email"], "name": u["name"], "role": u["role"],
+        "created_at": iso(u.get("created_at")),
     }
 
 
 def merchant_public(m: dict) -> dict:
     return {
-        "id": m["id"],
-        "owner_id": m["owner_id"],
-        "name": m["name"],
-        "description": m.get("description", ""),
-        "address": m.get("address", ""),
-        "image_url": m.get("image_url", ""),
+        "id": m["id"], "owner_id": m["owner_id"], "name": m["name"],
+        "description": m.get("description", ""), "address": m.get("address", ""),
+        "logo_url": m.get("logo_url", ""), "photo_url": m.get("photo_url", ""),
+        "tv_photo_url": m.get("tv_photo_url", ""),
+        "hours_text": m.get("hours_text", ""), "is_open": m.get("is_open", True),
         "status": m.get("status", "pending"),
         "categories": m.get("categories", []),
-        "created_at": iso(m["created_at"]) if isinstance(m.get("created_at"), datetime) else m.get("created_at"),
+        "created_at": iso(m.get("created_at")),
     }
 
 
 def entry_public(e: dict) -> dict:
     return {
-        "id": e["id"],
-        "merchant_id": e["merchant_id"],
-        "category_id": e["category_id"],
-        "category_name": e.get("category_name", ""),
-        "user_id": e.get("user_id"),
-        "customer_name": e["customer_name"],
-        "queue_number": e["queue_number"],
+        "id": e["id"], "merchant_id": e["merchant_id"], "category_id": e["category_id"],
+        "category_name": e.get("category_name", ""), "user_id": e.get("user_id"),
+        "customer_name": e["customer_name"], "queue_number": e["queue_number"],
         "status": e["status"],
-        "created_at": iso(e["created_at"]) if isinstance(e.get("created_at"), datetime) else e.get("created_at"),
-        "called_at": iso(e["called_at"]) if isinstance(e.get("called_at"), datetime) else e.get("called_at"),
-        "served_at": iso(e["served_at"]) if isinstance(e.get("served_at"), datetime) else e.get("served_at"),
+        "created_at": iso(e.get("created_at")),
+        "called_at": iso(e.get("called_at")), "served_at": iso(e.get("served_at")),
+    }
+
+
+def package_public(p: dict) -> dict:
+    return {
+        "id": p["id"], "name": p["name"], "description": p.get("description", ""),
+        "price_idr": p["price_idr"], "quota_count": p["quota_count"],
+        "duration_days": p["duration_days"], "active": p.get("active", True),
+        "created_at": iso(p.get("created_at")),
+    }
+
+
+def sub_public(s: dict) -> dict:
+    return {
+        "id": s["id"], "user_id": s["user_id"], "package_id": s["package_id"],
+        "package_name": s.get("package_name", ""),
+        "credits_remaining": s["credits_remaining"], "status": s["status"],
+        "expires_at": iso(s.get("expires_at")),
+        "created_at": iso(s.get("created_at")),
+    }
+
+
+def payment_public(p: dict) -> dict:
+    return {
+        "id": p["id"], "user_id": p["user_id"], "package_id": p["package_id"],
+        "amount_idr": p["amount_idr"], "status": p["status"],
+        "order_id": p["order_id"], "qr_string": p.get("qr_string", ""),
+        "created_at": iso(p.get("created_at")),
+        "paid_at": iso(p.get("paid_at")),
     }
 
 
@@ -232,12 +304,9 @@ async def register(body: RegisterIn):
     if body.role == "admin":
         raise HTTPException(status_code=400, detail="Cannot self-register as admin")
     user = {
-        "id": str(uuid.uuid4()),
-        "email": email,
-        "password_hash": hash_password(body.password),
-        "name": body.name,
-        "role": body.role,
-        "created_at": now_utc(),
+        "id": str(uuid.uuid4()), "email": email,
+        "password_hash": hash_password(body.password), "name": body.name,
+        "role": body.role, "created_at": now_utc(),
     }
     await db.users.insert_one(user)
     token = create_token(user["id"], user["email"], user["role"])
@@ -260,22 +329,60 @@ async def me(user: dict = Depends(get_current_user)):
 
 
 # ---------------------------------------------------------------------------
+# App settings (public read, admin write)
+# ---------------------------------------------------------------------------
+async def get_settings_doc() -> dict:
+    s = await db.app_settings.find_one({"key": "app"})
+    if not s:
+        doc = {"key": "app", **DEFAULT_SETTINGS, "updated_at": now_utc()}
+        await db.app_settings.insert_one(doc)
+        s = doc
+    return s
+
+
+@api.get("/settings")
+async def get_public_settings():
+    s = await get_settings_doc()
+    theme = THEMES.get(s.get("theme_key") or "slate_emerald", THEMES["slate_emerald"])
+    return {
+        "app_logo_url": s.get("app_logo_url", ""),
+        "app_name": s.get("app_name", "Lineup"),
+        "theme_key": theme["key"],
+        "theme": theme,
+        "available_themes": list(THEMES.values()),
+    }
+
+
+@api.put("/admin/settings")
+async def update_settings(body: SettingsIn, user: dict = Depends(require_role("admin"))):
+    update = {k: v for k, v in body.dict().items() if v is not None}
+    if "theme_key" in update and update["theme_key"] not in THEMES:
+        raise HTTPException(status_code=400, detail="Unknown theme key")
+    update["updated_at"] = now_utc()
+    await db.app_settings.update_one({"key": "app"}, {"$set": update}, upsert=True)
+    return await get_public_settings()
+
+
+# ---------------------------------------------------------------------------
 # Merchant endpoints
 # ---------------------------------------------------------------------------
 @api.post("/merchants")
 async def create_merchant(body: MerchantIn, user: dict = Depends(require_role("merchant", "admin"))):
-    m = Merchant(owner_id=user["id"], name=body.name, description=body.description or "",
-                 address=body.address or "", image_url=body.image_url or "").dict()
-    # Auto-approve for admin
-    if user["role"] == "admin":
-        m["status"] = "approved"
+    m = {
+        "id": str(uuid.uuid4()), "owner_id": user["id"],
+        "name": body.name, "description": body.description or "",
+        "address": body.address or "", "logo_url": body.logo_url or "",
+        "photo_url": body.photo_url or "", "tv_photo_url": body.tv_photo_url or "",
+        "hours_text": body.hours_text or "", "is_open": body.is_open if body.is_open is not None else True,
+        "status": "approved" if user["role"] == "admin" else "pending",
+        "categories": [], "created_at": now_utc(),
+    }
     await db.merchants.insert_one(m)
     return merchant_public(m)
 
 
 @api.get("/merchants")
 async def list_merchants():
-    # Public browsing -> only approved merchants
     cursor = db.merchants.find({"status": "approved"}, {"_id": 0})
     return [merchant_public(m) async for m in cursor]
 
@@ -301,11 +408,11 @@ async def update_merchant(merchant_id: str, body: MerchantIn, user: dict = Depen
         raise HTTPException(status_code=404, detail="Merchant not found")
     if user["role"] != "admin" and m["owner_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Forbidden")
-    await db.merchants.update_one(
-        {"id": merchant_id},
-        {"$set": {"name": body.name, "description": body.description or "",
-                  "address": body.address or "", "image_url": body.image_url or ""}},
-    )
+    update = body.dict()
+    update = {k: (v if v is not None else "") for k, v in update.items()}
+    if body.is_open is not None:
+        update["is_open"] = body.is_open
+    await db.merchants.update_one({"id": merchant_id}, {"$set": update})
     m = await db.merchants.find_one({"id": merchant_id}, {"_id": 0})
     return merchant_public(m)
 
@@ -317,7 +424,7 @@ async def add_category(merchant_id: str, body: CategoryIn, user: dict = Depends(
         raise HTTPException(status_code=404, detail="Merchant not found")
     if user["role"] != "admin" and m["owner_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Forbidden")
-    cat = Category(name=body.name, avg_service_minutes=body.avg_service_minutes).dict()
+    cat = {"id": str(uuid.uuid4()), "name": body.name, "avg_service_minutes": body.avg_service_minutes}
     await db.merchants.update_one({"id": merchant_id}, {"$push": {"categories": cat}})
     return cat
 
@@ -334,54 +441,205 @@ async def delete_category(merchant_id: str, category_id: str, user: dict = Depen
 
 
 # ---------------------------------------------------------------------------
+# Subscription packages (admin CRUD)
+# ---------------------------------------------------------------------------
+@api.get("/packages")
+async def public_packages():
+    cursor = db.packages.find({"active": True}, {"_id": 0}).sort("price_idr", 1)
+    return [package_public(p) async for p in cursor]
+
+
+@api.get("/admin/packages")
+async def admin_list_packages(user: dict = Depends(require_role("admin"))):
+    cursor = db.packages.find({}, {"_id": 0}).sort("created_at", -1)
+    return [package_public(p) async for p in cursor]
+
+
+@api.post("/admin/packages")
+async def admin_create_package(body: PackageIn, user: dict = Depends(require_role("admin"))):
+    p = {
+        "id": str(uuid.uuid4()), "name": body.name, "description": body.description or "",
+        "price_idr": body.price_idr, "quota_count": body.quota_count,
+        "duration_days": body.duration_days, "active": body.active,
+        "created_at": now_utc(),
+    }
+    await db.packages.insert_one(p)
+    return package_public(p)
+
+
+@api.put("/admin/packages/{package_id}")
+async def admin_update_package(package_id: str, body: PackageIn, user: dict = Depends(require_role("admin"))):
+    res = await db.packages.update_one({"id": package_id}, {"$set": body.dict()})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Package not found")
+    p = await db.packages.find_one({"id": package_id}, {"_id": 0})
+    return package_public(p)
+
+
+@api.delete("/admin/packages/{package_id}")
+async def admin_delete_package(package_id: str, user: dict = Depends(require_role("admin"))):
+    await db.packages.delete_one({"id": package_id})
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Subscriptions
+# ---------------------------------------------------------------------------
+async def active_subscription(user_id: str) -> Optional[dict]:
+    now = now_utc()
+    sub = await db.subscriptions.find_one(
+        {"user_id": user_id, "status": "active", "credits_remaining": {"$gt": 0},
+         "expires_at": {"$gt": now}},
+        {"_id": 0}, sort=[("expires_at", -1)],
+    )
+    return sub
+
+
+@api.get("/subscriptions/mine")
+async def my_subscriptions(user: dict = Depends(get_current_user)):
+    cursor = db.subscriptions.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1)
+    subs = [sub_public(s) async for s in cursor]
+    active = await active_subscription(user["id"])
+    return {"subscriptions": subs, "active": sub_public(active) if active else None}
+
+
+@api.get("/admin/subscriptions")
+async def admin_subscriptions(user: dict = Depends(require_role("admin"))):
+    cursor = db.subscriptions.find({}, {"_id": 0}).sort("created_at", -1)
+    out = []
+    async for s in cursor:
+        u = await db.users.find_one({"id": s["user_id"]}, {"_id": 0, "password_hash": 0})
+        d = sub_public(s)
+        d["user"] = user_public(u) if u else None
+        out.append(d)
+    return out
+
+
+@api.put("/admin/subscriptions/{sub_id}")
+async def admin_update_subscription(sub_id: str, body: UpdateSubIn, user: dict = Depends(require_role("admin"))):
+    update = {k: v for k, v in body.dict().items() if v is not None}
+    if not update:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    res = await db.subscriptions.update_one({"id": sub_id}, {"$set": update})
+    if res.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    s = await db.subscriptions.find_one({"id": sub_id}, {"_id": 0})
+    return sub_public(s)
+
+
+# ---------------------------------------------------------------------------
+# Payments (MOCK QRIS for now)
+# ---------------------------------------------------------------------------
+@api.post("/payments/create")
+async def payments_create(body: PaymentCreateIn, user: dict = Depends(get_current_user)):
+    pkg = await db.packages.find_one({"id": body.package_id, "active": True}, {"_id": 0})
+    if not pkg:
+        raise HTTPException(status_code=404, detail="Package not found")
+    order_id = f"ORD-{uuid.uuid4().hex[:12].upper()}"
+    # Mock QRIS string (placeholder for real Midtrans integration)
+    qr_string = f"mock-qris://{order_id}?amount={pkg['price_idr']}"
+    payment = {
+        "id": str(uuid.uuid4()), "user_id": user["id"], "package_id": pkg["id"],
+        "amount_idr": pkg["price_idr"], "status": "pending",
+        "order_id": order_id, "qr_string": qr_string,
+        "created_at": now_utc(), "paid_at": None,
+    }
+    await db.payments.insert_one(payment)
+    return payment_public(payment)
+
+
+@api.get("/payments/{payment_id}")
+async def payments_get(payment_id: str, user: dict = Depends(get_current_user)):
+    p = await db.payments.find_one({"id": payment_id}, {"_id": 0})
+    if not p:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if user["role"] != "admin" and p["user_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return payment_public(p)
+
+
+@api.post("/payments/{payment_id}/confirm")
+async def payments_confirm(payment_id: str, user: dict = Depends(get_current_user)):
+    """MOCK endpoint — simulates a successful QRIS payment callback."""
+    p = await db.payments.find_one({"id": payment_id})
+    if not p:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if p["user_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if p["status"] == "paid":
+        return payment_public(p)
+    pkg = await db.packages.find_one({"id": p["package_id"]})
+    if not pkg:
+        raise HTTPException(status_code=404, detail="Package gone")
+    # Mark paid
+    await db.payments.update_one(
+        {"id": payment_id}, {"$set": {"status": "paid", "paid_at": now_utc()}},
+    )
+    # Create/extend subscription
+    expires_at = now_utc() + timedelta(days=pkg["duration_days"])
+    sub = {
+        "id": str(uuid.uuid4()), "user_id": user["id"],
+        "package_id": pkg["id"], "package_name": pkg["name"],
+        "credits_remaining": pkg["quota_count"],
+        "status": "active", "expires_at": expires_at, "created_at": now_utc(),
+    }
+    await db.subscriptions.insert_one(sub)
+    p2 = await db.payments.find_one({"id": payment_id}, {"_id": 0})
+    return payment_public(p2)
+
+
+# ---------------------------------------------------------------------------
 # Queue endpoints
 # ---------------------------------------------------------------------------
 async def next_queue_number(merchant_id: str) -> int:
     today = now_utc().strftime("%Y-%m-%d")
     key = f"{merchant_id}:{today}"
-    res = await db.queue_counters.find_one_and_update(
+    await db.queue_counters.find_one_and_update(
         {"key": key},
         {"$inc": {"seq": 1}, "$setOnInsert": {"key": key, "created_at": now_utc()}},
         upsert=True,
-        return_document=True,
     )
-    # motor returns doc after update when return_document=ReturnDocument.AFTER; but default returns before
-    # Safer: re-read
     doc = await db.queue_counters.find_one({"key": key})
     return doc["seq"]
 
 
 @api.post("/queue/join")
-async def join_queue(body: JoinQueueIn, request: Request,
-                     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme)):
-    # optional auth
-    user = None
-    if credentials and credentials.credentials:
-        try:
-            payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALG])
-            user = await db.users.find_one({"id": payload["sub"]}, {"_id": 0, "password_hash": 0})
-        except jwt.PyJWTError:
-            user = None
-
+async def join_queue(body: JoinQueueIn, user: Optional[dict] = Depends(optional_user)):
     m = await db.merchants.find_one({"id": body.merchant_id})
     if not m or m.get("status") != "approved":
         raise HTTPException(status_code=404, detail="Merchant unavailable")
+    if not m.get("is_open", True):
+        raise HTTPException(status_code=400, detail="Merchant is currently closed")
     cat = next((c for c in m.get("categories", []) if c["id"] == body.category_id), None)
     if not cat:
         raise HTTPException(status_code=404, detail="Category not found")
 
-    customer_name = (body.customer_name or (user["name"] if user else None) or "Guest").strip()
+    # Subscription enforcement: if packages exist AND user is authenticated customer,
+    # require active subscription with remaining credits.
+    active_sub = None
+    if user and user["role"] == "customer":
+        has_packages = (await db.packages.count_documents({"active": True})) > 0
+        if has_packages:
+            active_sub = await active_subscription(user["id"])
+            if not active_sub:
+                raise HTTPException(status_code=402, detail="Active subscription required. Please purchase a package.")
 
+    customer_name = (body.customer_name or (user["name"] if user else None) or "Guest").strip()
     number = await next_queue_number(body.merchant_id)
-    entry = QueueEntry(
-        merchant_id=body.merchant_id,
-        category_id=body.category_id,
-        category_name=cat["name"],
-        user_id=user["id"] if user else None,
-        customer_name=customer_name,
-        queue_number=number,
-    ).dict()
+    entry = {
+        "id": str(uuid.uuid4()), "merchant_id": body.merchant_id,
+        "category_id": body.category_id, "category_name": cat["name"],
+        "user_id": user["id"] if user else None, "customer_name": customer_name,
+        "queue_number": number, "status": "waiting", "created_at": now_utc(),
+        "called_at": None, "served_at": None,
+    }
     await db.queue_entries.insert_one(entry)
+
+    # Deduct credit after successful insert
+    if active_sub:
+        await db.subscriptions.update_one(
+            {"id": active_sub["id"]}, {"$inc": {"credits_remaining": -1}},
+        )
     return entry_public(entry)
 
 
@@ -390,12 +648,9 @@ async def get_queue_entry(entry_id: str):
     e = await db.queue_entries.find_one({"id": entry_id}, {"_id": 0})
     if not e:
         raise HTTPException(status_code=404, detail="Queue entry not found")
-    # compute position and eta
     ahead = await db.queue_entries.count_documents({
-        "merchant_id": e["merchant_id"],
-        "category_id": e["category_id"],
-        "status": "waiting",
-        "queue_number": {"$lt": e["queue_number"]},
+        "merchant_id": e["merchant_id"], "category_id": e["category_id"],
+        "status": "waiting", "queue_number": {"$lt": e["queue_number"]},
     })
     m = await db.merchants.find_one({"id": e["merchant_id"]}, {"_id": 0})
     cat = next((c for c in (m.get("categories", []) if m else []) if c["id"] == e["category_id"]), None)
@@ -415,10 +670,8 @@ async def my_active_queues(user: dict = Depends(get_current_user)):
     entries = []
     async for e in cursor:
         ahead = await db.queue_entries.count_documents({
-            "merchant_id": e["merchant_id"],
-            "category_id": e["category_id"],
-            "status": "waiting",
-            "queue_number": {"$lt": e["queue_number"]},
+            "merchant_id": e["merchant_id"], "category_id": e["category_id"],
+            "status": "waiting", "queue_number": {"$lt": e["queue_number"]},
         })
         m = await db.merchants.find_one({"id": e["merchant_id"]}, {"_id": 0})
         cat = next((c for c in (m.get("categories", []) if m else []) if c["id"] == e["category_id"]), None)
@@ -427,6 +680,7 @@ async def my_active_queues(user: dict = Depends(get_current_user)):
         d["position"] = ahead
         d["estimated_wait_minutes"] = ahead * avg
         d["merchant_name"] = m["name"] if m else ""
+        d["merchant_logo"] = m.get("logo_url", "") if m else ""
         entries.append(d)
     return entries
 
@@ -439,8 +693,7 @@ async def merchant_queue(merchant_id: str, user: dict = Depends(get_current_user
     if user["role"] != "admin" and m["owner_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Forbidden")
     cursor = db.queue_entries.find({"merchant_id": merchant_id}, {"_id": 0}).sort("queue_number", 1)
-    entries = [entry_public(e) async for e in cursor]
-    return entries
+    return [entry_public(e) async for e in cursor]
 
 
 @api.post("/merchants/{merchant_id}/queue/next")
@@ -451,7 +704,6 @@ async def call_next(merchant_id: str, category_id: Optional[str] = None,
         raise HTTPException(status_code=404, detail="Merchant not found")
     if user["role"] != "admin" and m["owner_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Forbidden")
-    # mark any currently-called -> served
     await db.queue_entries.update_many(
         {"merchant_id": merchant_id, "status": "called", **({"category_id": category_id} if category_id else {})},
         {"$set": {"status": "served", "served_at": now_utc()}},
@@ -460,17 +712,14 @@ async def call_next(merchant_id: str, category_id: Optional[str] = None,
     if category_id:
         q["category_id"] = category_id
     nxt = await db.queue_entries.find_one_and_update(
-        q,
-        {"$set": {"status": "called", "called_at": now_utc()}},
+        q, {"$set": {"status": "called", "called_at": now_utc()}},
         sort=[("queue_number", 1)],
-        return_document=True,
     )
     if not nxt:
         return {"entry": None}
     entry = await db.queue_entries.find_one(
         {"merchant_id": merchant_id, "status": "called"},
-        {"_id": 0},
-        sort=[("called_at", -1)],
+        {"_id": 0}, sort=[("called_at", -1)],
     )
     return {"entry": entry_public(entry) if entry else None}
 
@@ -503,7 +752,6 @@ async def serve_entry(merchant_id: str, entry_id: str, user: dict = Depends(get_
     return {"ok": True}
 
 
-# Public TV display endpoint
 @api.get("/merchants/{merchant_id}/queue/tv")
 async def tv_display(merchant_id: str):
     m = await db.merchants.find_one({"id": merchant_id}, {"_id": 0})
@@ -511,16 +759,14 @@ async def tv_display(merchant_id: str):
         raise HTTPException(status_code=404, detail="Merchant not found")
     now_serving = await db.queue_entries.find_one(
         {"merchant_id": merchant_id, "status": "called"},
-        {"_id": 0},
-        sort=[("called_at", -1)],
+        {"_id": 0}, sort=[("called_at", -1)],
     )
     cursor = db.queue_entries.find(
         {"merchant_id": merchant_id, "status": "waiting"}, {"_id": 0}
     ).sort("queue_number", 1).limit(6)
     upcoming = [entry_public(e) async for e in cursor]
     recent_served = await db.queue_entries.find(
-        {"merchant_id": merchant_id, "status": "served"},
-        {"_id": 0},
+        {"merchant_id": merchant_id, "status": "served"}, {"_id": 0},
     ).sort("served_at", -1).limit(3).to_list(3)
     return {
         "merchant": merchant_public(m),
@@ -557,15 +803,40 @@ async def admin_update_merchant_status(merchant_id: str, body: UpdateMerchantSta
 
 @api.get("/admin/stats")
 async def admin_stats(user: dict = Depends(require_role("admin"))):
+    today_start = datetime.combine(now_utc().date(), datetime.min.time()).replace(tzinfo=timezone.utc)
     return {
         "users": await db.users.count_documents({}),
         "merchants": await db.merchants.count_documents({}),
         "pending_merchants": await db.merchants.count_documents({"status": "pending"}),
         "approved_merchants": await db.merchants.count_documents({"status": "approved"}),
-        "total_queues_today": await db.queue_entries.count_documents({
-            "created_at": {"$gte": datetime.combine(now_utc().date(), datetime.min.time()).replace(tzinfo=timezone.utc)}
-        }),
+        "total_queues_today": await db.queue_entries.count_documents({"created_at": {"$gte": today_start}}),
+        "revenue_idr_today": sum([
+            p["amount_idr"] async for p in db.payments.find(
+                {"status": "paid", "paid_at": {"$gte": today_start}}, {"_id": 0, "amount_idr": 1})
+        ]),
     }
+
+
+@api.get("/admin/queue-stats")
+async def admin_queue_stats(user: dict = Depends(require_role("admin"))):
+    """Per-merchant queue counts (today)."""
+    today_start = datetime.combine(now_utc().date(), datetime.min.time()).replace(tzinfo=timezone.utc)
+    cursor = db.merchants.find({}, {"_id": 0})
+    out = []
+    async for m in cursor:
+        mid = m["id"]
+        waiting = await db.queue_entries.count_documents({"merchant_id": mid, "status": "waiting"})
+        called = await db.queue_entries.count_documents({"merchant_id": mid, "status": "called"})
+        served_today = await db.queue_entries.count_documents({
+            "merchant_id": mid, "status": "served", "served_at": {"$gte": today_start},
+        })
+        out.append({
+            "merchant_id": mid, "name": m["name"], "logo_url": m.get("logo_url", ""),
+            "status": m.get("status"),
+            "waiting": waiting, "called": called, "served_today": served_today,
+            "total_today": waiting + called + served_today,
+        })
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -576,23 +847,17 @@ async def root():
     return {"message": "Queue Management System API", "status": "ok"}
 
 
-# ---------------------------------------------------------------------------
-# App wiring
-# ---------------------------------------------------------------------------
 app.include_router(api)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=["*"], allow_credentials=False,
+    allow_methods=["*"], allow_headers=["*"],
 )
 
 
 @app.on_event("startup")
 async def startup():
-    # indexes
     await db.users.create_index("email", unique=True)
     await db.users.create_index("id", unique=True)
     await db.merchants.create_index("id", unique=True)
@@ -600,27 +865,48 @@ async def startup():
     await db.queue_entries.create_index("id", unique=True)
     await db.queue_entries.create_index([("merchant_id", 1), ("status", 1), ("queue_number", 1)])
     await db.queue_counters.create_index("key", unique=True)
+    await db.packages.create_index("id", unique=True)
+    await db.subscriptions.create_index("id", unique=True)
+    await db.subscriptions.create_index("user_id")
+    await db.payments.create_index("id", unique=True)
+    await db.payments.create_index("order_id", unique=True)
+    await db.app_settings.create_index("key", unique=True)
 
-    # seed admin
+    # Seed admin
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@queue.app").lower()
     admin_password = os.environ.get("ADMIN_PASSWORD", "Admin@123")
     existing = await db.users.find_one({"email": admin_email})
     if not existing:
         await db.users.insert_one({
-            "id": str(uuid.uuid4()),
-            "email": admin_email,
-            "password_hash": hash_password(admin_password),
-            "name": "System Admin",
-            "role": "admin",
-            "created_at": now_utc(),
+            "id": str(uuid.uuid4()), "email": admin_email,
+            "password_hash": hash_password(admin_password), "name": "System Admin",
+            "role": "admin", "created_at": now_utc(),
         })
-        logger.info("Seeded admin user: %s", admin_email)
+        logger.info("Seeded admin: %s", admin_email)
     elif not verify_password(admin_password, existing["password_hash"]):
         await db.users.update_one(
             {"email": admin_email},
             {"$set": {"password_hash": hash_password(admin_password), "role": "admin"}},
         )
-        logger.info("Updated admin password")
+
+    # Seed app settings
+    await get_settings_doc()
+
+    # Seed default packages if none exist
+    if await db.packages.count_documents({}) == 0:
+        defaults = [
+            {"name": "Free", "description": "Coba gratis — 3 antrian dalam 7 hari",
+             "price_idr": 0, "quota_count": 3, "duration_days": 7, "active": True},
+            {"name": "Basic", "description": "10 antrian dalam 30 hari",
+             "price_idr": 15000, "quota_count": 10, "duration_days": 30, "active": True},
+            {"name": "Premium", "description": "50 antrian dalam 30 hari",
+             "price_idr": 49000, "quota_count": 50, "duration_days": 30, "active": True},
+        ]
+        for d in defaults:
+            d["id"] = str(uuid.uuid4())
+            d["created_at"] = now_utc()
+            await db.packages.insert_one(d)
+        logger.info("Seeded default subscription packages")
 
 
 @app.on_event("shutdown")
