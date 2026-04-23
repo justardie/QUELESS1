@@ -30,6 +30,7 @@ export default function SettingsHub() {
     { label: 'Beli paket', sub: 'Upgrade atau perpanjang', icon: 'bag-handle-outline', to: '/settings/packages', show: user.role === 'customer' },
     { label: 'Profil merchant', sub: 'Logo, foto, alamat & jam operasional', icon: 'storefront-outline', to: '/settings/merchant', show: user.role === 'merchant' || user.role === 'admin' },
     { label: 'Tampilan aplikasi', sub: 'Logo & warna tema', icon: 'color-palette-outline', to: '/settings/appearance', show: user.role === 'admin' },
+    { label: 'Pembayaran (Midtrans QRIS)', sub: 'Server & client key, mode sandbox/production', icon: 'card-outline', to: '/settings/payments', show: user.role === 'admin' },
     { label: 'Paket langganan', sub: 'Kelola paket customer', icon: 'pricetags-outline', to: '/settings/packages-admin', show: user.role === 'admin' },
     { label: 'Subscription customer', sub: 'Lihat & ubah status paket', icon: 'people-outline', to: '/settings/subscriptions-admin', show: user.role === 'admin' },
     { label: 'Statistik antrian', sub: 'Jumlah antrian per merchant', icon: 'stats-chart-outline', to: '/settings/queue-stats', show: user.role === 'admin' },

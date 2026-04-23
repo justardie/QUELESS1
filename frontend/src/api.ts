@@ -33,6 +33,7 @@ async function request<T = any>(path: string, opts: RequestInit = {}): Promise<T
 export const api = {
   // settings
   getSettings: () => request('/settings'),
+  getAdminFullSettings: () => request('/admin/settings/full'),
   updateSettings: (body: any) => request('/admin/settings', { method: 'PUT', body: JSON.stringify(body) }),
 
   // auth
@@ -74,6 +75,7 @@ export const api = {
   createPayment: (body: any) => request('/payments/create', { method: 'POST', body: JSON.stringify(body) }),
   getPayment: (id: string) => request(`/payments/${id}`),
   confirmPayment: (id: string) => request(`/payments/${id}/confirm`, { method: 'POST' }),
+  checkPayment: (id: string) => request(`/payments/${id}/check`, { method: 'POST' }),
 
   // admin
   adminUsers: () => request('/admin/users'),

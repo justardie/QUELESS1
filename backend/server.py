@@ -78,6 +78,9 @@ DEFAULT_SETTINGS = {
     "app_logo_url": "",
     "theme_key": "slate_emerald",
     "app_name": "Lineup",
+    "midtrans_server_key": "",
+    "midtrans_client_key": "",
+    "midtrans_is_production": False,
 }
 
 
@@ -214,6 +217,9 @@ class SettingsIn(BaseModel):
     app_logo_url: Optional[str] = None
     theme_key: Optional[str] = None
     app_name: Optional[str] = None
+    midtrans_server_key: Optional[str] = None
+    midtrans_client_key: Optional[str] = None
+    midtrans_is_production: Optional[bool] = None
 
 
 class PackageIn(BaseModel):
@@ -292,6 +298,8 @@ def payment_public(p: dict) -> dict:
         "id": p["id"], "user_id": p["user_id"], "package_id": p["package_id"],
         "amount_idr": p["amount_idr"], "status": p["status"],
         "order_id": p["order_id"], "qr_string": p.get("qr_string", ""),
+        "qr_image_url": p.get("qr_image_url", ""),
+        "provider": p.get("provider", "mock"),
         "created_at": iso(p.get("created_at")),
         "paid_at": iso(p.get("paid_at")),
     }
@@ -401,6 +409,27 @@ async def get_public_settings():
         "theme_key": theme["key"],
         "theme": theme,
         "available_themes": list(THEMES.values()),
+        # Only the client key is exposed publicly. Server key stays server-side.
+        "midtrans_client_key": s.get("midtrans_client_key", ""),
+        "midtrans_is_production": bool(s.get("midtrans_is_production", False)),
+        "midtrans_enabled": bool(s.get("midtrans_server_key")),
+    }
+
+
+@api.get("/admin/settings/full")
+async def admin_get_full_settings(user: dict = Depends(require_role("admin"))):
+    """Admin-only: includes server_key so admin can view/edit it."""
+    s = await get_settings_doc()
+    theme = THEMES.get(s.get("theme_key") or "slate_emerald", THEMES["slate_emerald"])
+    return {
+        "app_logo_url": s.get("app_logo_url", ""),
+        "app_name": s.get("app_name", "Lineup"),
+        "theme_key": theme["key"],
+        "theme": theme,
+        "available_themes": list(THEMES.values()),
+        "midtrans_server_key": s.get("midtrans_server_key", ""),
+        "midtrans_client_key": s.get("midtrans_client_key", ""),
+        "midtrans_is_production": bool(s.get("midtrans_is_production", False)),
     }
 
 
@@ -579,22 +608,114 @@ async def admin_update_subscription(sub_id: str, body: UpdateSubIn, user: dict =
 
 
 # ---------------------------------------------------------------------------
-# Payments (MOCK QRIS for now)
+# Payments (Midtrans QRIS when configured, else MOCK)
 # ---------------------------------------------------------------------------
+import base64 as _b64
+import hashlib as _hashlib
+
+
+def _midtrans_base_url(is_production: bool) -> str:
+    return "https://api.midtrans.com" if is_production else "https://api.sandbox.midtrans.com"
+
+
+async def _midtrans_charge_qris(server_key: str, is_production: bool, order_id: str, amount: int) -> dict:
+    auth = _b64.b64encode(f"{server_key}:".encode()).decode()
+    body = {
+        "payment_type": "qris",
+        "transaction_details": {"order_id": order_id, "gross_amount": amount},
+        "qris": {"acquirer": "gopay"},
+    }
+    async with httpx.AsyncClient(timeout=15) as http:
+        r = await http.post(
+            f"{_midtrans_base_url(is_production)}/v2/charge",
+            headers={"Authorization": f"Basic {auth}", "Content-Type": "application/json", "Accept": "application/json"},
+            json=body,
+        )
+    data = r.json() if r.content else {}
+    if r.status_code >= 300:
+        raise HTTPException(status_code=502, detail=f"Midtrans error: {data.get('status_message') or r.text}")
+    return data
+
+
+async def _midtrans_status(server_key: str, is_production: bool, order_id: str) -> dict:
+    auth = _b64.b64encode(f"{server_key}:".encode()).decode()
+    async with httpx.AsyncClient(timeout=15) as http:
+        r = await http.get(
+            f"{_midtrans_base_url(is_production)}/v2/{order_id}/status",
+            headers={"Authorization": f"Basic {auth}", "Accept": "application/json"},
+        )
+    return r.json() if r.content else {}
+
+
+async def _activate_subscription_for_payment(p: dict):
+    """Idempotent: create a subscription if this payment just became 'paid'."""
+    if p["status"] != "paid":
+        return
+    # guard against double-activation
+    existing = await db.subscriptions.find_one({"payment_id": p["id"]})
+    if existing:
+        return
+    pkg = await db.packages.find_one({"id": p["package_id"]})
+    if not pkg:
+        return
+    expires_at = now_utc() + timedelta(days=pkg["duration_days"])
+    sub = {
+        "id": str(uuid.uuid4()), "user_id": p["user_id"],
+        "package_id": pkg["id"], "package_name": pkg["name"],
+        "credits_remaining": pkg["quota_count"],
+        "status": "active", "expires_at": expires_at, "created_at": now_utc(),
+        "payment_id": p["id"],
+    }
+    await db.subscriptions.insert_one(sub)
+
+
 @api.post("/payments/create")
 async def payments_create(body: PaymentCreateIn, user: dict = Depends(get_current_user)):
     pkg = await db.packages.find_one({"id": body.package_id, "active": True}, {"_id": 0})
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found")
+
+    s = await get_settings_doc()
+    server_key = s.get("midtrans_server_key", "")
+    is_production = bool(s.get("midtrans_is_production", False))
+
     order_id = f"ORD-{uuid.uuid4().hex[:12].upper()}"
-    # Mock QRIS string (placeholder for real Midtrans integration)
-    qr_string = f"mock-qris://{order_id}?amount={pkg['price_idr']}"
     payment = {
         "id": str(uuid.uuid4()), "user_id": user["id"], "package_id": pkg["id"],
-        "amount_idr": pkg["price_idr"], "status": "pending",
-        "order_id": order_id, "qr_string": qr_string,
-        "created_at": now_utc(), "paid_at": None,
+        "amount_idr": pkg["price_idr"],
+        "order_id": order_id, "created_at": now_utc(), "paid_at": None,
+        "provider": "midtrans" if server_key else "mock",
+        "is_production": is_production if server_key else False,
     }
+
+    # Free packages → auto-paid (no Midtrans call)
+    if pkg["price_idr"] == 0:
+        payment["status"] = "paid"
+        payment["paid_at"] = now_utc()
+        payment["qr_string"] = ""
+        payment["qr_image_url"] = ""
+        await db.payments.insert_one(payment)
+        await _activate_subscription_for_payment(payment)
+        return payment_public(payment)
+
+    if server_key:
+        # Real Midtrans QRIS
+        mt = await _midtrans_charge_qris(server_key, is_production, order_id, pkg["price_idr"])
+        qr_image_url = ""
+        for a in (mt.get("actions") or []):
+            if a.get("name") == "generate-qr-code":
+                qr_image_url = a.get("url", "")
+                break
+        payment["status"] = "pending"
+        payment["qr_string"] = mt.get("qr_string", "")
+        payment["qr_image_url"] = qr_image_url
+        payment["midtrans_transaction_id"] = mt.get("transaction_id", "")
+    else:
+        # Mock
+        payment["status"] = "pending"
+        payment["qr_string"] = f"mock-qris://{order_id}?amount={pkg['price_idr']}"
+        payment["qr_image_url"] = ""
+
     await db.payments.insert_one(payment)
     return payment_public(payment)
 
@@ -609,9 +730,45 @@ async def payments_get(payment_id: str, user: dict = Depends(get_current_user)):
     return payment_public(p)
 
 
+@api.post("/payments/{payment_id}/check")
+async def payments_check(payment_id: str, user: dict = Depends(get_current_user)):
+    """Poll Midtrans for latest status. No-op if using mock provider."""
+    p = await db.payments.find_one({"id": payment_id})
+    if not p:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if p["user_id"] != user["id"] and user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    if p.get("provider") != "midtrans" or p["status"] == "paid":
+        return payment_public({**p, "_id": None})
+
+    s = await get_settings_doc()
+    server_key = s.get("midtrans_server_key", "")
+    if not server_key:
+        return payment_public({**p, "_id": None})
+
+    data = await _midtrans_status(server_key, bool(s.get("midtrans_is_production", False)), p["order_id"])
+    ts = (data.get("transaction_status") or "").lower()
+    frs = (data.get("fraud_status") or "").lower()
+
+    new_status = p["status"]
+    if ts in ("settlement", "capture") and frs in ("", "accept"):
+        new_status = "paid"
+    elif ts in ("cancel", "deny", "expire", "failure"):
+        new_status = "failed" if ts in ("deny", "failure", "cancel") else "expired"
+
+    if new_status != p["status"]:
+        upd = {"status": new_status}
+        if new_status == "paid":
+            upd["paid_at"] = now_utc()
+        await db.payments.update_one({"id": payment_id}, {"$set": upd})
+        p = await db.payments.find_one({"id": payment_id})
+        await _activate_subscription_for_payment(p)
+    return payment_public(p)
+
+
 @api.post("/payments/{payment_id}/confirm")
 async def payments_confirm(payment_id: str, user: dict = Depends(get_current_user)):
-    """MOCK endpoint — simulates a successful QRIS payment callback."""
+    """Mock-only simulator. Blocked when Midtrans is configured to prevent bypass."""
     p = await db.payments.find_one({"id": payment_id})
     if not p:
         raise HTTPException(status_code=404, detail="Payment not found")
@@ -619,24 +776,51 @@ async def payments_confirm(payment_id: str, user: dict = Depends(get_current_use
         raise HTTPException(status_code=403, detail="Forbidden")
     if p["status"] == "paid":
         return payment_public(p)
-    pkg = await db.packages.find_one({"id": p["package_id"]})
-    if not pkg:
-        raise HTTPException(status_code=404, detail="Package gone")
-    # Mark paid
-    await db.payments.update_one(
-        {"id": payment_id}, {"$set": {"status": "paid", "paid_at": now_utc()}},
-    )
-    # Create/extend subscription
-    expires_at = now_utc() + timedelta(days=pkg["duration_days"])
-    sub = {
-        "id": str(uuid.uuid4()), "user_id": user["id"],
-        "package_id": pkg["id"], "package_name": pkg["name"],
-        "credits_remaining": pkg["quota_count"],
-        "status": "active", "expires_at": expires_at, "created_at": now_utc(),
-    }
-    await db.subscriptions.insert_one(sub)
-    p2 = await db.payments.find_one({"id": payment_id}, {"_id": 0})
-    return payment_public(p2)
+    if p.get("provider") == "midtrans":
+        raise HTTPException(status_code=400, detail="Midtrans active: complete real payment via QRIS")
+    await db.payments.update_one({"id": payment_id}, {"$set": {"status": "paid", "paid_at": now_utc()}})
+    p = await db.payments.find_one({"id": payment_id})
+    await _activate_subscription_for_payment(p)
+    return payment_public(p)
+
+
+@api.post("/payments/midtrans/notify")
+async def midtrans_notify(payload: dict):
+    """Midtrans webhook callback — verifies signature then updates payment."""
+    s = await get_settings_doc()
+    server_key = s.get("midtrans_server_key", "")
+    if not server_key:
+        raise HTTPException(status_code=400, detail="Midtrans not configured")
+
+    order_id = payload.get("order_id", "")
+    status_code = str(payload.get("status_code", ""))
+    gross_amount = str(payload.get("gross_amount", ""))
+    signature = payload.get("signature_key", "")
+    expected = _hashlib.sha512(f"{order_id}{status_code}{gross_amount}{server_key}".encode()).hexdigest()
+    if signature != expected:
+        raise HTTPException(status_code=401, detail="Invalid signature")
+
+    p = await db.payments.find_one({"order_id": order_id})
+    if not p:
+        raise HTTPException(status_code=404, detail="Payment not found")
+
+    ts = (payload.get("transaction_status") or "").lower()
+    frs = (payload.get("fraud_status") or "").lower()
+    new_status = p["status"]
+    if ts in ("settlement", "capture") and frs in ("", "accept"):
+        new_status = "paid"
+    elif ts == "pending":
+        new_status = "pending"
+    elif ts in ("cancel", "deny", "expire", "failure"):
+        new_status = "failed" if ts in ("deny", "failure", "cancel") else "expired"
+
+    upd = {"status": new_status}
+    if new_status == "paid":
+        upd["paid_at"] = now_utc()
+    await db.payments.update_one({"order_id": order_id}, {"$set": upd})
+    p = await db.payments.find_one({"order_id": order_id})
+    await _activate_subscription_for_payment(p)
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------
