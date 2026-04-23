@@ -1,0 +1,48 @@
+{
+  "summary": "Full backend + frontend regression for the Queue Management System (Lineup). 39/39 pytest cases pass covering auth, RBAC, merchant CRUD, category management, queue join/status/ETA, call-next/serve/skip, TV endpoint, and admin endpoints. Frontend mobile flows verified end-to-end: welcome (login+register tabs+role toggle), customer browse→merchant detail→category→join→live status polling, merchant register→dashboard with call-next/serve, admin panel stats+approve/suspend/reject, and TV landscape display showing NOW SERVING + Up next + Recently served. No red screens, no API 500s.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "CORS middleware", "issue": "allow_origins=['*'] with allow_credentials=False. Fine for JWT-in-header mobile design, but diverges from auth_playbook recommending explicit origins + credentials when cookies are used. Current design uses AsyncStorage bearer token, so this is acceptable."},
+      {"endpoint": "POST /api/auth/login", "issue": "No brute-force lockout / rate limiting after N failed attempts (playbook recommends 5). Not blocking, but worth adding."},
+      {"endpoint": "POST /api/merchants/{id}/queue/next", "issue": "Contains dead code path (lines 470-471 computing `entry` twice using a potentially-undefined `q` as id fallback). Works correctly due to the safer re-read on line 472, but the first assignment should be removed for clarity."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "app/index.tsx register form", "issue": "Register tab reuses testIDs `login-email-input`, `login-password-input`, `login-submit-button` for email/password/submit fields. Should be renamed to `register-email-input`, `register-password-input`, `register-submit-button` for clarity and to avoid confusion in tests.", "testID": "login-email-input (should be register-email-input)", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "All screens", "issues": ["expo.err.log shows repeated 'shadow* style props are deprecated. Use boxShadow.' warnings — non-breaking but should migrate styles from shadowColor/shadowOffset/... to boxShadow for RN Web compatibility."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/conftest.py",
+    "/app/backend/tests/test_queue_system.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(LOW) Rename register-form testIDs in app/index.tsx from login-* to register-* to disambiguate from sign-in form.",
+    "(LOW) Clean up the redundant `entry` assignment in POST /api/merchants/{id}/queue/next (server.py line 470-471).",
+    "(NICE-TO-HAVE) Add login rate-limit / lockout (auth playbook guideline).",
+    "(NICE-TO-HAVE) Migrate shadow* style props to boxShadow across glassmorphism components to silence RN Web deprecation warnings."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 627 lines — still manageable but approaching the split-threshold. Consider splitting into routers/{auth,merchants,queue,admin}.py if it grows further.",
+    "JWT secret correctly loaded from env; passwords hashed with bcrypt ($2b$...) via gensalt; admin seed is idempotent and refreshes password if env differs. Good.",
+    "Mongo _id excluded via projection {'_id': 0} on every read — correct.",
+    "Auth optional for POST /api/queue/join is implemented correctly (try/except jwt decode)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/conftest.py (created)",
+    "/app/backend/tests/test_queue_system.py (created)"
+  ],
+  "success_rate": {"backend": "100% (39/39)", "frontend": "100% on flows tested (welcome, admin panel, customer join queue, merchant register+dashboard+call-next, TV picker+landscape display)"},
+  "seed_data_creation": "Created several TEST_-prefixed users and merchants via the public API during regression (isolated from production data; safe to leave).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend base URL: EXPO_PUBLIC_BACKEND_URL (https://merchant-lineup.preview.emergentagent.com). Admin creds: ardie@anggadipura.com / Admin@123. Existing merchant: m1@test.com / pass1234 (owns 'Cafe Test' merchant id 8f7b9df2-eeec-406b-8696-b4f9bf97e9bb with category 'Coffee'). All testIDs documented in frontend screens; register form currently shares testIDs with sign-in — when testing register flow, use the same login-email-input / login-password-input / login-submit-button selectors after clicking tab-register.",
+  "rca_of_issue": "N/A — no blocking bugs found. Only cosmetic / naming-convention improvements noted."
+}
