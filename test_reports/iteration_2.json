@@ -1,0 +1,49 @@
+{
+  "summary": "Full backend + frontend regression for iteration 2+3 (OAuth, settings/theme, merchant profile new fields, packages CRUD, payments/subscriptions mock QRIS, quota enforcement, queue-stats, TV with photos). 64/64 pytest cases pass (39 existing regression + 25 new). Fixed a CRITICAL syntax error in app/index.tsx (extra stray `});` at line 187) that was red-screening the entire web app. After fix, home renders correctly, /auth screen exposes google-signin-button whose href redirects to https://auth.emergentagent.com/?redirect=... as expected, admin login works and /settings shows all role-aware admin items (Profil merchant, Tampilan aplikasi, Paket langganan, Subscription customer, Statistik antrian). Quota enforcement verified: customer without active subscription → 402; guest join → 200; customer with active sub → 200 and credits_remaining decrements by 1. OAuth endpoint with invalid session_id → 401 as required.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PUT /api/merchants/{id}", "issue": "Uses the full MerchantIn body where `name` is required and all missing fields default to empty strings. Partial updates wipe previously set fields (logo_url, photo_url, tv_photo_url, hours_text). Consider introducing MerchantUpdateIn with all Optional fields, or switching to PATCH semantics, to avoid accidentally clearing logos/photos on a small edit."},
+      {"endpoint": "POST /api/admin/subscriptions seed job", "issue": "On every backend restart, `Seeded default subscription packages` logs — check the seed is idempotent (currently appears fine, but duplicate names may accumulate if checks are by id only). Worth double-checking."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "app/index.tsx", "issue": "FIXED — stray `});` after StyleSheet.create closure caused SyntaxError at line 187:0 and red-screened every route. Removed the extra closure.", "testID": "home-screen", "priority": "CRITICAL"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin /settings", "issues": ["'Profil merchant' appears for the admin role. Spec says this item is for the merchant role only. Verify if intentional (admin as super-merchant) or hide for admin."]}
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/conftest.py",
+    "/app/backend/tests/test_queue_system.py",
+    "/app/backend/tests/test_iter2_new_features.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(INFO) app/index.tsx syntax error has already been fixed by the testing agent — just keep the fix.",
+    "(LOW) Introduce partial-update semantics for PUT /api/merchants/{id} (e.g. MerchantUpdateIn with Optional fields) so merchants can tweak one field without re-sending the whole profile.",
+    "(LOW) Decide whether admin should see 'Profil merchant' on /settings (currently does).",
+    "(LOW) Rename register-form testIDs in app/auth.tsx from login-* to register-* once you split the forms (carried over from iteration 1)."
+  ],
+  "critical_code_review_comments": [
+    "server.py is now 965 lines — past the 700-line soft split threshold. Strongly recommend splitting into routers/{auth,merchants,queue,packages,payments,admin,oauth}.py modules.",
+    "OAuth endpoint correctly proxies to Emergent session-data and rejects fake session_ids with 401 (confirmed: 401 returned for fake id, backend logs show 404 from upstream which is mapped correctly).",
+    "Quota enforcement in POST /api/queue/join is correct: only enforced when packages exist AND user is authenticated customer; guests bypass; credit is decremented only after successful insert.",
+    "Payment/subscription flow is clearly marked as MOCKED QRIS — replacement with Midtrans webhook is still pending. This is documented in memory/test_credentials.md."
+  ],
+  "updated_files": [
+    "/app/frontend/app/index.tsx (removed stray `});`)",
+    "/app/backend/tests/test_iter2_new_features.py (created — new-feature pytest suite, 25 tests)",
+    "/app/backend/tests/test_queue_system.py (updated test_member_join + test_mine_active to tolerate quota enforcement, since packages now exist)"
+  ],
+  "success_rate": {"backend": "100% (64/64)", "frontend": "Core flows verified: home list with Buka/Tutup pills, /auth login+register tabs with google-signin-button, Google redirect target = https://auth.emergentagent.com/?redirect=..., admin login + /settings role-aware items. TV / appearance picker / packages CRUD UI were not clicked through end-to-end but the containing screens load and backend APIs underneath all pass."},
+  "seed_data_creation": "Created TEST_-prefixed users/merchants/packages/subscriptions during regression. One active admin-created package (TEST_Pkg_Basic_v2 @ 30000 IDR, quota 3) is left in the DB — remove manually if undesired.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend base URL comes from frontend/.env EXPO_PUBLIC_BACKEND_URL. Admin: ardie@anggadipura.com / Admin@123. Test merchant m1@test.com / pass1234 and customer buyer@test.com / test1234 may already exist from earlier runs. Because iteration 2 introduced quota enforcement, any new customer that isn't seeded with a subscription will receive 402 on POST /api/queue/join whenever packages exist — to test a member-style join, either (a) buy a package via /api/payments/create + /api/payments/{id}/confirm first, or (b) omit auth (guest) and pass customer_name. testIDs on /auth: tab-login, tab-register, login-email-input, login-password-input, login-submit-button, google-signin-button. Note: PUT /api/merchants/{id} requires full MerchantIn body (name required); partial updates silently wipe other fields. Fix applied to app/index.tsx (removed stray `});` at line 187).",
+  "rca_of_issue": "Red-screen on / : app/index.tsx had an orphan `});` after the StyleSheet.create(...) closing `});` — most likely a leftover from an incomplete edit that duplicated the closure. Metro Babel parser reported SyntaxError at 187:0. Removed the stray line and the app now bundles and renders correctly on the public URL."
+}

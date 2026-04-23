@@ -175,6 +175,10 @@ class LoginIn(BaseModel):
     password: str
 
 
+class OAuthProcessIn(BaseModel):
+    session_id: str
+
+
 class AuthOut(BaseModel):
     token: str
     user: dict
@@ -326,6 +330,53 @@ async def login(body: LoginIn):
 @api.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
     return user_public(user)
+
+
+# ---------------------------------------------------------------------------
+# Emergent Google OAuth (session_id exchange)
+# ---------------------------------------------------------------------------
+import httpx
+
+
+@api.post("/auth/oauth/process", response_model=AuthOut)
+async def oauth_process(body: OAuthProcessIn):
+    """Exchange Emergent session_id for the user profile and issue our own JWT.
+    REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+    """
+    async with httpx.AsyncClient(timeout=10) as http:
+        resp = await http.get(
+            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+            headers={"X-Session-ID": body.session_id},
+        )
+    if resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid session")
+    data = resp.json()
+    email = (data.get("email") or "").lower().strip()
+    name = data.get("name") or email.split("@")[0]
+    if not email:
+        raise HTTPException(status_code=400, detail="Missing email in session data")
+
+    user = await db.users.find_one({"email": email})
+    if not user:
+        user = {
+            "id": str(uuid.uuid4()), "email": email,
+            "password_hash": "",  # OAuth user — no password
+            "name": name, "role": "customer", "created_at": now_utc(),
+            "oauth_provider": "emergent_google",
+            "picture": data.get("picture", ""),
+        }
+        await db.users.insert_one(user)
+    else:
+        # update picture/name if changed
+        await db.users.update_one(
+            {"email": email},
+            {"$set": {"name": name, "picture": data.get("picture", user.get("picture", "")),
+                      "oauth_provider": "emergent_google"}},
+        )
+        user = await db.users.find_one({"email": email})
+
+    token = create_token(user["id"], user["email"], user["role"])
+    return {"token": token, "user": user_public(user)}
 
 
 # ---------------------------------------------------------------------------

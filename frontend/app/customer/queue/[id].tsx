@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../../src/theme';
 import { Card, Button, Badge } from '../../../src/ui';
 import { api } from '../../../src/api';
+import { notify, requestNotificationPermission } from '../../../src/notifications';
 
 export default function QueueStatus() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -14,6 +15,7 @@ export default function QueueStatus() {
   const notified = useRef(false);
 
   useEffect(() => {
+    requestNotificationPermission();
     let alive = true;
     async function tick() {
       try {
@@ -22,16 +24,11 @@ export default function QueueStatus() {
         setEntry(e);
         if (!notified.current && e.position <= 1 && e.status === 'waiting') {
           notified.current = true;
-          if (Platform.OS === 'web' && typeof window !== 'undefined') {
-            // subtle browser ping
-            try { console.log('You are next!'); } catch {}
-          } else {
-            Alert.alert('Almost your turn!', `You are next in line at ${e.category_name}`);
-          }
+          notify('Antrian Anda hampir tiba', `Anda berikutnya di ${e.category_name}`);
         }
-        if (e.status === 'called' && !notified.current) {
-          notified.current = true;
-          Alert.alert("It's your turn!", `Queue #${e.queue_number} has been called`);
+        if (e.status === 'called' && notified.current !== 'called') {
+          notified.current = 'called' as any;
+          notify('Giliran Anda!', `Nomor antrian #${e.queue_number} dipanggil`);
         }
       } catch {}
     }

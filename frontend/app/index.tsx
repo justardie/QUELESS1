@@ -10,6 +10,7 @@ import { useTheme } from '../src/themeContext';
 import { Card, AppHeaderLogo, Hx, MutedText, BodyText, Badge } from '../src/ui';
 import { api } from '../src/api';
 import { useAuth } from '../src/auth';
+import { requestNotificationPermission } from '../src/notifications';
 
 export default function Home() {
   const router = useRouter();

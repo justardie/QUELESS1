@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { api, setToken, getToken } from './api';
 
 export type User = { id: string; email: string; name: string; role: 'admin' | 'merchant' | 'customer' };
@@ -8,6 +9,7 @@ type AuthCtx = {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<User>;
   signUp: (email: string, password: string, name: string, role: 'customer' | 'merchant') => Promise<User>;
+  signInWithGoogle: () => void;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 };
@@ -57,7 +59,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }
 
-  return <Ctx.Provider value={{ user, loading, signIn, signUp, signOut, refresh }}>{children}</Ctx.Provider>;
+  // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+  function signInWithGoogle() {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const redirectUrl = window.location.origin + '/';
+    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
+  }
+
+  // Handle session_id hash coming back from Emergent OAuth
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const hash = window.location.hash || '';
+    const m = hash.match(/session_id=([^&]+)/);
+    if (!m) return;
+    const sid = decodeURIComponent(m[1]);
+    // clean URL immediately
+    try { window.history.replaceState({}, '', window.location.pathname + window.location.search); } catch {}
+    (async () => {
+      try {
+        const res: any = await api.oauthProcess(sid);
+        await setToken(res.token);
+        setUser(res.user);
+      } catch (e) {
+        // silently ignore invalid session
+      }
+    })();
+  }, []);
+
+  return <Ctx.Provider value={{ user, loading, signIn, signUp, signInWithGoogle, signOut, refresh }}>{children}</Ctx.Provider>;
 }
 
 export function useAuth() {

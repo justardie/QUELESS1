@@ -15,7 +15,7 @@ export default function Auth() {
   const router = useRouter();
   const c = useColors();
   const { settings } = useTheme();
-  const { user, loading, signIn, signUp } = useAuth();
+  const { user, loading, signIn, signUp, signInWithGoogle } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [role, setRole] = useState<'customer' | 'merchant'>('customer');
   const [email, setEmail] = useState('');
@@ -130,6 +130,22 @@ export default function Auth() {
               label={busy ? 'Mohon tunggu…' : mode === 'login' ? 'Masuk' : 'Buat akun'}
               onPress={onSubmit} disabled={busy}
             />
+
+            <View style={styles.dividerRow}>
+              <View style={[styles.divider, { backgroundColor: 'rgba(15,23,42,0.08)' }]} />
+              <Text style={[styles.dividerText, { color: c.muted, fontFamily: iosFontFamily }]}>atau</Text>
+              <View style={[styles.divider, { backgroundColor: 'rgba(15,23,42,0.08)' }]} />
+            </View>
+
+            <TouchableOpacity
+              testID="google-signin-button"
+              activeOpacity={0.85}
+              onPress={signInWithGoogle}
+              style={[styles.googleBtn, { borderColor: 'rgba(15,23,42,0.12)' }]}
+            >
+              <Ionicons name="logo-google" size={20} color="#DB4437" />
+              <Text style={[styles.googleText, { color: c.text, fontFamily: iosFontFamily }]}>Masuk dengan Google</Text>
+            </TouchableOpacity>
           </Card>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -160,4 +176,12 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: 'transparent',
   },
   rolePillText: { fontWeight: '600', fontSize: 14 },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', marginVertical: 16, gap: 10 },
+  divider: { flex: 1, height: 1 },
+  dividerText: { fontSize: 12, fontWeight: '600' },
+  googleBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
+    height: 50, borderRadius: 14, borderWidth: 1, backgroundColor: '#fff',
+  },
+  googleText: { fontSize: 15, fontWeight: '600' },
 });

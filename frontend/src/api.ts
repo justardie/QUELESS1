@@ -38,6 +38,7 @@ export const api = {
   // auth
   register: (body: any) => request('/auth/register', { method: 'POST', body: JSON.stringify(body) }),
   login: (body: any) => request('/auth/login', { method: 'POST', body: JSON.stringify(body) }),
+  oauthProcess: (session_id: string) => request('/auth/oauth/process', { method: 'POST', body: JSON.stringify({ session_id }) }),
   me: () => request('/auth/me'),
 
   // merchants
