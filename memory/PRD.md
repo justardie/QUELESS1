@@ -30,8 +30,8 @@ Mobile-first queue system (Expo RN + FastAPI + MongoDB) supporting four roles: A
 
 ## Integrations roadmap
 - **QRIS payment**: Currently mocked. Midtrans playbook gathered; will swap in real Snap API + webhook + HMAC-SHA512 signature verification once `MIDTRANS_SERVER_KEY` + `MIDTRANS_CLIENT_KEY` are provided.
-- **Google OAuth** (Emergent-managed): Deferred to a future iteration.
-- **Push notifications**: Currently uses in-app alerts via polling; can be upgraded to Web Notifications / Expo Notifications later.
+- **Emergent Google OAuth**: ✅ IMPLEMENTED. Frontend `signInWithGoogle()` redirects to `auth.emergentagent.com` with dynamic `window.location.origin + '/'` as redirect. Hash-based `session_id` caught on app mount, exchanged via `POST /api/auth/oauth/process` → backend calls `demobackend.emergentagent.com/auth/v1/env/oauth/session-data` → user auto-created with role `customer`, JWT returned. `/app/auth_testing.md` documents the flow for the testing agent.
+- **Cross-platform notifications**: ✅ IMPLEMENTED. `src/notifications.ts` uses browser Notification API on web (with `navigator.vibrate`) and `expo-notifications` on native. Triggered when queue position ≤ 1 or status becomes `called`. Permission requested on home mount (when authenticated) and queue-status screen mount.
 
 ## Data model
 - `users`: id, email (unique), password_hash, name, role, created_at
