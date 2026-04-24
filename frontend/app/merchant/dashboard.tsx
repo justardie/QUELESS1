@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../src/theme';
 import { Card, ScreenHeader, Badge, Button } from '../../src/ui';
+import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../src/bottomDock';
 import { api } from '../../src/api';
 import { useAuth } from '../../src/auth';
 
@@ -92,7 +93,7 @@ export default function MerchantDashboard() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 20, paddingBottom: BOTTOM_DOCK_HEIGHT + 40 }}
         refreshControl={<RefreshControl refreshing={false} onRefresh={() => { loadMerchants(); loadQueue(); }} tintColor={theme.colors.brand} />}
       >
         <ScreenHeader
@@ -225,6 +226,7 @@ export default function MerchantDashboard() {
           )}
         />
       </ScrollView>
+      <BottomDock />
     </SafeAreaView>
   );
 }

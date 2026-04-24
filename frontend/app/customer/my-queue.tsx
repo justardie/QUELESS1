@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../src/theme';
 import { Card, ScreenHeader, Badge } from '../../src/ui';
+import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../src/bottomDock';
 import { api } from '../../src/api';
 
 export default function MyQueue() {
@@ -70,6 +71,7 @@ export default function MyQueue() {
           />
         )}
       </View>
+      <BottomDock />
     </SafeAreaView>
   );
 }

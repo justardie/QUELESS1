@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors, iosFontFamily } from '../../src/themeContext';
 import { Card, Hx, MutedText, BodyText, Button } from '../../src/ui';
+import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../src/bottomDock';
 import { useAuth } from '../../src/auth';
 
 export default function SettingsHub() {
@@ -39,7 +40,7 @@ export default function SettingsHub() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.bg }]} edges={['top']}>
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: BOTTOM_DOCK_HEIGHT + 60 }}>
         <Header title="Pengaturan" onBack={() => router.back()} />
 
         <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -107,6 +108,7 @@ export default function SettingsHub() {
           }}
         />
       </ScrollView>
+      <BottomDock />
     </SafeAreaView>
   );
 }

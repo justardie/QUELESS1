@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../src/theme';
 import { Card, ScreenHeader, Badge, Button } from '../../src/ui';
+import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../src/bottomDock';
 import { api } from '../../src/api';
 import { useAuth } from '../../src/auth';
 
@@ -43,7 +44,7 @@ export default function Admin() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: BOTTOM_DOCK_HEIGHT + 40 }}
         refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor={theme.colors.brand} />}>
         <ScreenHeader
           title="Admin"
@@ -127,6 +128,7 @@ export default function Admin() {
         <View style={{ height: 10 }} />
         <Button testID="logout-button-bottom" label="Keluar" variant="danger" onPress={handleLogout} />
       </ScrollView>
+      <BottomDock />
     </SafeAreaView>
   );
 }

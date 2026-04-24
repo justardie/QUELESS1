@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useColors, iosFontFamily, radius } from '../src/themeContext';
 import { useTheme } from '../src/themeContext';
 import { Card, AppHeaderLogo, Hx, MutedText, BodyText, Badge } from '../src/ui';
+import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../src/bottomDock';
 import { api } from '../src/api';
 import { useAuth } from '../src/auth';
 import { requestNotificationPermission } from '../src/notifications';
@@ -69,7 +70,7 @@ export default function Home() {
         data={merchants}
         keyExtractor={(m) => m.id}
         refreshControl={<RefreshControl refreshing={false} onRefresh={load} tintColor={c.primary} />}
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: BOTTOM_DOCK_HEIGHT + 40 }}
         ListHeaderComponent={
           <View>
             <Hx size={30} style={{ marginBottom: 4 }}>Antrian jadi mudah</Hx>
@@ -178,6 +179,7 @@ export default function Home() {
           </TouchableOpacity>
         )}
       />
+      <BottomDock />
     </SafeAreaView>
   );
 }
