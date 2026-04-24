@@ -1,117 +1,218 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { theme } from '../../../src/theme';
-import { Card, Button } from '../../../src/ui';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useColors, iosFontFamily } from '../../../src/themeContext';
+import { Card, Button, MutedText, BodyText, Hx } from '../../../src/ui';
 import { api } from '../../../src/api';
+
+const { height: SCREEN_H } = Dimensions.get('window');
+const HERO_H = Math.min(SCREEN_H * 0.42, 360);
 
 export default function MerchantDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const c = useColors();
   const [m, setM] = useState<any | null>(null);
+  const [tv, setTv] = useState<any | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    (async () => {
+    let alive = true;
+    async function load() {
       try {
         const data = await api.merchant(id!);
+        if (!alive) return;
         setM(data);
-        if (data.categories?.length) setSelected(data.categories[0].id);
+        if (data.categories?.length) {
+          // only auto-select if merchant enforces service selection (i.e., >1 category or user taps)
+          if (data.categories.length === 1) setSelected(data.categories[0].id);
+        }
       } catch (e: any) {
         Alert.alert('Error', e.message);
       }
-    })();
+    }
+    async function loadTv() {
+      try { const t = await api.tv(id!); if (alive) setTv(t); } catch {}
+    }
+    load(); loadTv();
+    const timer = setInterval(loadTv, 4000);
+    return () => { alive = false; clearInterval(timer); };
   }, [id]);
 
   async function join() {
-    if (!selected) return;
+    if ((m?.categories?.length || 0) > 0 && !selected) {
+      Alert.alert('Pilih layanan', 'Silakan pilih layanan terlebih dahulu');
+      return;
+    }
     setBusy(true);
     try {
-      const entry: any = await api.joinQueue({ merchant_id: id!, category_id: selected });
+      const entry: any = await api.joinQueue({ merchant_id: id!, category_id: selected || undefined });
       router.replace(`/customer/queue/${entry.id}`);
     } catch (e: any) {
-      Alert.alert('Could not join queue', e.message);
+      Alert.alert('Gagal mengambil antrian', e.message);
     } finally {
       setBusy(false);
     }
   }
 
-  if (!m) return <View style={styles.center}><ActivityIndicator color={theme.colors.brand} /></View>;
+  if (!m) return <View style={[styles.center, { backgroundColor: c.bg }]}><ActivityIndicator color={c.primary} /></View>;
+
+  const heroUrl = m.photo_url || m.tv_photo_url || '';
+  const nowNum = tv?.now_serving?.queue_number;
+  const upcomingCount = tv?.upcoming?.length || 0;
+  const isOpen = m.is_open !== false;
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.scroll}>
-        <View style={styles.topRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
-            <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
-          </TouchableOpacity>
-        </View>
+    <SafeAreaView style={[styles.container, { backgroundColor: c.bg }]} edges={['top']}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
 
-        <View style={styles.heroWrap}>
-          <View style={styles.heroIcon}>
-            <Ionicons name="storefront" size={40} color={theme.colors.brandDark} />
-          </View>
-          <Text style={styles.mName}>{m.name}</Text>
-          {!!m.description && <Text style={styles.mDesc}>{m.description}</Text>}
-          {!!m.address && <Text style={styles.mAddr}>{m.address}</Text>}
-        </View>
-
-        <Text style={styles.section}>Choose a service</Text>
-        {(m.categories || []).length === 0 ? (
-          <Card><Text style={{ color: theme.colors.textMuted }}>No services available</Text></Card>
-        ) : (
-          m.categories.map((c: any) => (
-            <TouchableOpacity
-              key={c.id}
-              testID={`service-category-${c.id}`}
-              activeOpacity={0.9}
-              onPress={() => setSelected(c.id)}
-              style={{ marginBottom: 10 }}
-            >
-              <Card style={[styles.catCard, selected === c.id && styles.catCardActive]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.catName}>{c.name}</Text>
-                  <Text style={styles.catSub}>~{c.avg_service_minutes} min per customer</Text>
-                </View>
-                <View style={[styles.radio, selected === c.id && styles.radioActive]} />
-              </Card>
+        {/* Hero image (setengah halaman) */}
+        <View style={styles.hero}>
+          {heroUrl ? (
+            <Image source={{ uri: heroUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+          ) : (
+            <LinearGradient colors={[c.primary, c.primaryDark]} style={StyleSheet.absoluteFillObject} />
+          )}
+          <LinearGradient
+            colors={['rgba(0,0,0,0.1)', 'rgba(0,0,0,0.0)', 'rgba(0,0,0,0.55)']}
+            style={StyleSheet.absoluteFillObject}
+            locations={[0, 0.4, 1]}
+          />
+          {/* Back + status */}
+          <View style={styles.heroTopBar}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <Ionicons name="arrow-back" size={22} color="#fff" />
             </TouchableOpacity>
-          ))
-        )}
+            <View style={{ flex: 1 }} />
+            <View style={[styles.statusPill, { backgroundColor: isOpen ? 'rgba(34,197,94,0.95)' : 'rgba(239,68,68,0.95)' }]}>
+              <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#fff' }} />
+              <Text style={[styles.statusText, { fontFamily: iosFontFamily }]}>{isOpen ? 'Buka' : 'Tutup'}</Text>
+            </View>
+          </View>
 
-        <View style={{ height: 20 }} />
+          {/* Nomor antrian aktif (overlay bawah hero) */}
+          <View style={styles.heroBottom}>
+            <View style={styles.activeBadge}>
+              <Text style={[styles.activeLabel, { fontFamily: iosFontFamily }]}>SEDANG DILAYANI</Text>
+              <Text style={[styles.activeNumber, { fontFamily: iosFontFamily }]}>
+                {nowNum ? `#${nowNum}` : '—'}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }} />
+            <View style={styles.waitingBadge}>
+              <Ionicons name="people-outline" size={18} color="#fff" />
+              <Text style={[styles.waitingText, { fontFamily: iosFontFamily }]}>{upcomingCount} menunggu</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Body card - overlap ke hero */}
+        <View style={styles.bodyWrap}>
+          <Card style={{ borderRadius: 28, padding: 20, marginTop: -24 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              {m.logo_url ? (
+                <Image source={{ uri: m.logo_url }} style={styles.logo} />
+              ) : (
+                <View style={[styles.logo, { backgroundColor: c.soft, alignItems: 'center', justifyContent: 'center' }]}>
+                  <Ionicons name="storefront" size={28} color={c.primaryDark} />
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Hx size={22}>{m.name}</Hx>
+                {!!m.description && <MutedText size={13} style={{ marginTop: 2 }} >{m.description}</MutedText>}
+              </View>
+            </View>
+
+            <View style={{ height: 14 }} />
+            {!!m.address && (
+              <View style={styles.infoRow}>
+                <Ionicons name="location-outline" size={16} color={c.muted} />
+                <Text style={[styles.infoText, { color: c.text, fontFamily: iosFontFamily }]}>{m.address}</Text>
+              </View>
+            )}
+            {!!m.hours_text && (
+              <View style={styles.infoRow}>
+                <Ionicons name="time-outline" size={16} color={c.muted} />
+                <Text style={[styles.infoText, { color: c.text, fontFamily: iosFontFamily }]}>{m.hours_text}</Text>
+              </View>
+            )}
+          </Card>
+
+          {/* Pilih layanan */}
+          <Text style={[styles.sectionLabel, { color: c.muted, fontFamily: iosFontFamily }]}>PILIH LAYANAN</Text>
+          {(m.categories || []).length === 0 ? (
+            <Card>
+              <BodyText>Belum ada layanan tersedia. Merchant akan segera menambahkan.</BodyText>
+            </Card>
+          ) : (
+            m.categories.map((cat: any) => (
+              <TouchableOpacity
+                key={cat.id}
+                testID={`service-category-${cat.id}`}
+                activeOpacity={0.9}
+                onPress={() => setSelected(cat.id)}
+                style={{ marginBottom: 10 }}
+              >
+                <Card style={[
+                  styles.catCard,
+                  { borderColor: selected === cat.id ? c.primary : 'rgba(15,23,42,0.06)', borderWidth: selected === cat.id ? 2 : 1, backgroundColor: selected === cat.id ? c.soft : '#fff' },
+                ]}>
+                  <View style={{ flex: 1 }}>
+                    <BodyText weight="700" size={16}>{cat.name}</BodyText>
+                    <MutedText size={12} style={{ marginTop: 2 }}>~{cat.avg_service_minutes} menit per antrian</MutedText>
+                  </View>
+                  <View style={[
+                    styles.radio,
+                    selected === cat.id ? { borderColor: c.primary, backgroundColor: c.primary } : { borderColor: 'rgba(15,23,42,0.12)' },
+                  ]}>
+                    {selected === cat.id && <Ionicons name="checkmark" size={14} color="#fff" />}
+                  </View>
+                </Card>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Tombol Join fixed di bawah */}
+      <View style={[styles.footer, { backgroundColor: c.bg }]}>
         <Button
           testID="join-queue-button"
-          label={busy ? 'Joining…' : 'Join queue'}
+          label={busy ? 'Mengambil nomor…' : isOpen ? 'Ambil nomor antrian' : 'Merchant sedang tutup'}
           onPress={join}
-          disabled={!selected || busy}
+          disabled={!isOpen || busy || (m.categories?.length > 0 && !selected)}
         />
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.colors.bg },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.colors.bg },
-  scroll: { padding: 20, paddingBottom: 60 },
-  topRow: { marginBottom: 10 },
-  iconBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.border },
-  heroWrap: { alignItems: 'center', marginVertical: 20 },
-  heroIcon: { width: 84, height: 84, borderRadius: 26, backgroundColor: theme.colors.brandSoft, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
-  mName: { fontSize: 26, fontWeight: '800', color: theme.colors.text, letterSpacing: -0.5 },
-  mDesc: { fontSize: 15, color: theme.colors.textMuted, marginTop: 6, textAlign: 'center' },
-  mAddr: { fontSize: 13, color: theme.colors.textMuted, marginTop: 4 },
-  section: { fontSize: 14, fontWeight: '700', color: theme.colors.textMuted, marginBottom: 10, marginTop: 8, textTransform: 'uppercase', letterSpacing: 1 },
+  container: { flex: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  hero: { height: HERO_H, width: '100%', position: 'relative' },
+  heroTopBar: { paddingHorizontal: 16, paddingTop: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(0,0,0,0.35)', alignItems: 'center', justifyContent: 'center' },
+  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999 },
+  statusText: { color: '#fff', fontWeight: '700', fontSize: 12 },
+  heroBottom: { position: 'absolute', left: 0, right: 0, bottom: 38, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'flex-end' },
+  activeBadge: { backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 18, paddingVertical: 14, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)' },
+  activeLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 2, color: 'rgba(255,255,255,0.9)' },
+  activeNumber: { fontSize: 42, fontWeight: '900', color: '#fff', letterSpacing: -2, marginTop: 2, includeFontPadding: false },
+  waitingBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,0,0,0.45)', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999 },
+  waitingText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  bodyWrap: { paddingHorizontal: 16 },
+  logo: { width: 60, height: 60, borderRadius: 18 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  infoText: { fontSize: 14 },
+  sectionLabel: { fontSize: 11, fontWeight: '700', letterSpacing: 1.5, marginTop: 20, marginBottom: 10 },
   catCard: { flexDirection: 'row', alignItems: 'center' },
-  catCardActive: { borderColor: theme.colors.brand, borderWidth: 2, backgroundColor: theme.colors.brandSoft },
-  catName: { fontSize: 16, fontWeight: '700', color: theme.colors.text },
-  catSub: { fontSize: 13, color: theme.colors.textMuted, marginTop: 2 },
-  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: theme.colors.border },
-  radioActive: { borderColor: theme.colors.brand, backgroundColor: theme.colors.brand },
+  radio: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  footer: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20, borderTopWidth: 1, borderTopColor: 'rgba(15,23,42,0.06)' },
 });

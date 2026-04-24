@@ -128,27 +128,43 @@ export default function MerchantDashboard() {
           <Text style={styles.smallLabel}>NOW SERVING</Text>
           <Text style={styles.bigNumber}>{called ? `#${called.queue_number}` : '—'}</Text>
           {called && <Text style={styles.sub}>{called.customer_name} • {called.category_name}</Text>}
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-            <Button testID="call-next-button" label="Call next" onPress={onCallNext} style={{ flex: 1 }} />
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+            <Button testID="call-next-button" label="Panggil berikutnya" onPress={onCallNext} style={{ flex: 1, minWidth: 130 }} />
             {called && (
-              <Button testID="serve-current-button" label="Serve" variant="secondary" onPress={() => onServe(called.id)} style={{ flex: 1 }} />
+              <>
+                <Button testID="serve-current-button" label="Selesai" variant="secondary" onPress={() => onServe(called.id)} style={{ flex: 1, minWidth: 100 }} />
+                <Button testID="skip-current-button" label="Lewati" variant="danger" onPress={() => onSkip(called.id)} style={{ flex: 1, minWidth: 100 }} />
+              </>
             )}
           </View>
         </Card>
 
-        {/* TV link */}
+        {/* Share / display links */}
         {selected && (
-          <TouchableOpacity
-            testID="open-tv-display"
-            onPress={() => router.push(`/tv/${selected.id}`)}
-            style={{ marginTop: 12 }}
-          >
-            <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <Ionicons name="tv-outline" size={22} color={theme.colors.brandDark} />
-              <Text style={{ flex: 1, fontWeight: '600', color: theme.colors.text }}>Open TV display</Text>
-              <Ionicons name="open-outline" size={18} color={theme.colors.textMuted} />
-            </Card>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+            <TouchableOpacity
+              testID="open-tv-display"
+              activeOpacity={0.85}
+              onPress={() => router.push(`/tv/${selected.id}`)}
+              style={{ flex: 1 }}
+            >
+              <Card style={styles.quickAction}>
+                <Ionicons name="tv-outline" size={22} color={theme.colors.brandDark} />
+                <Text style={styles.quickActionText}>Tampilan TV</Text>
+              </Card>
+            </TouchableOpacity>
+            <TouchableOpacity
+              testID="open-merchant-qr"
+              activeOpacity={0.85}
+              onPress={() => router.push(`/merchant-qr/${selected.id}`)}
+              style={{ flex: 1 }}
+            >
+              <Card style={styles.quickAction}>
+                <Ionicons name="qr-code-outline" size={22} color={theme.colors.brandDark} />
+                <Text style={styles.quickActionText}>QR Pelanggan</Text>
+              </Card>
+            </TouchableOpacity>
+          </View>
         )}
 
         {/* Categories manage */}
@@ -254,4 +270,6 @@ const styles = StyleSheet.create({
   qName: { fontSize: 15, fontWeight: '600', color: theme.colors.text },
   qCat: { fontSize: 12, color: theme.colors.textMuted },
   smallBtn: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#fee2e2', alignItems: 'center', justifyContent: 'center' },
+  quickAction: { alignItems: 'center', gap: 6, paddingVertical: 16 },
+  quickActionText: { fontSize: 13, fontWeight: '700', color: theme.colors.text },
 });
