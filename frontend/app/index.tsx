@@ -47,18 +47,13 @@ export default function Home() {
     <SafeAreaView style={[styles.container, { backgroundColor: c.bg }]} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <AppHeaderLogo logoUrl={settings.app_logo_url} size={38} />
+        <AppHeaderLogo logoUrl={settings.app_logo_url} size={36} />
+        <Text style={[styles.appName, { color: c.text, fontFamily: iosFontFamily }]}>{settings.app_name || 'QUELESS'}</Text>
         <View style={{ flex: 1 }} />
         {user ? (
-          <>
-            <TouchableOpacity testID="open-dashboard" onPress={routeForUser} style={[styles.iconBtn, { backgroundColor: c.soft }]}>
-              <Ionicons name="grid-outline" size={20} color={c.primaryDark} />
-            </TouchableOpacity>
-            <View style={{ width: 8 }} />
-            <TouchableOpacity testID="open-settings" onPress={() => router.push('/settings')} style={[styles.iconBtn, { backgroundColor: '#fff', borderWidth: 1, borderColor: 'rgba(15,23,42,0.08)' }]}>
-              <Ionicons name="settings-outline" size={20} color={c.text} />
-            </TouchableOpacity>
-          </>
+          <TouchableOpacity testID="open-settings" onPress={() => router.push('/settings')} style={[styles.iconBtn, { backgroundColor: '#fff', borderWidth: 1, borderColor: 'rgba(15,23,42,0.08)' }]}>
+            <Ionicons name="settings-outline" size={20} color={c.text} />
+          </TouchableOpacity>
         ) : (
           <TouchableOpacity
             testID="header-signin"
@@ -169,7 +164,8 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center' },
+  header: { paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  appName: { fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
   iconBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   signInBtn: { paddingHorizontal: 18, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   signInText: { color: '#fff', fontWeight: '700', fontSize: 14 },

@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native'; from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors, iosFontFamily } from '../../src/themeContext';
@@ -73,6 +72,29 @@ export default function SettingsHub() {
         ))}
 
         <View style={{ height: 20 }} />
+        {user.role === 'admin' && (
+          <>
+            <Button
+              testID="cleanup-orphans"
+              label="Bersihkan data orphan"
+              variant="secondary"
+              onPress={() => {
+                Alert.alert('Bersihkan data orphan?', 'Akan menghapus merchant/queue/subscription/payment yang merujuk ke data yang sudah tidak ada.', [
+                  { text: 'Batal', style: 'cancel' },
+                  {
+                    text: 'Bersihkan', onPress: async () => {
+                      try {
+                        const r: any = await (require('../../src/api').api.adminCleanupOrphans());
+                        Alert.alert('Selesai', `Orphan merchants: ${r.orphan_merchants}\nQueue entries: ${r.orphan_queue_entries}\nSubscriptions: ${r.orphan_subscriptions}\nPayments: ${r.orphan_payments}`);
+                      } catch (e: any) { Alert.alert('Gagal', e.message); }
+                    }
+                  },
+                ]);
+              }}
+            />
+            <View style={{ height: 10 }} />
+          </>
+        )}
         <Button
           testID="logout-button"
           label="Keluar"

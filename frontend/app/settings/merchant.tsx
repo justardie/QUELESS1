@@ -39,11 +39,21 @@ export default function MerchantSettings() {
       <SafeAreaView style={[styles.container, { backgroundColor: c.bg }]} edges={['top']}>
         <View style={{ padding: 20 }}>
           <Header title="Profil merchant" onBack={() => router.back()} />
-          <Card><BodyText>Belum ada merchant. Buat dulu melalui dashboard.</BodyText></Card>
+          <Card>
+            <BodyText weight="600">Belum ada merchant untuk akun Anda</BodyText>
+            <MutedText size={13} style={{ marginTop: 6 }}>
+              Buat profil merchant dulu untuk bisa mengelola antrian dan profilnya.
+            </MutedText>
+            <View style={{ height: 12 }} />
+            <Button label="Buat merchant baru" onPress={() => router.push('/merchant/register')} />
+          </Card>
         </View>
       </SafeAreaView>
     );
   }
+
+  const statusColor = form.status === 'approved' ? '#DCFCE7' : form.status === 'pending' ? '#FEF3C7' : '#FEE2E2';
+  const statusText = form.status === 'approved' ? '#065F46' : form.status === 'pending' ? '#92400E' : '#7F1D1D';
 
   async function save() {
     setBusy(true);
@@ -62,8 +72,28 @@ export default function MerchantSettings() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.bg }]} edges={['top']}>
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
         <Header title="Profil merchant" onBack={() => router.back()} />
+
+        {/* User/merchant info header */}
+        <Card style={{ marginBottom: 12, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          {form.logo_url ? (
+            <Image source={{ uri: form.logo_url }} style={{ width: 48, height: 48, borderRadius: 14 }} />
+          ) : (
+            <View style={{ width: 48, height: 48, borderRadius: 14, backgroundColor: c.soft, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="storefront-outline" size={22} color={c.primaryDark} />
+            </View>
+          )}
+          <View style={{ flex: 1 }}>
+            <BodyText weight="700" size={16}>{form.name || '(tanpa nama)'}</BodyText>
+            <MutedText size={12}>Merchant ID: {form.id.slice(0, 8)}…</MutedText>
+          </View>
+          <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999, backgroundColor: statusColor }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: statusText, fontFamily: iosFontFamily }}>
+              {form.status}
+            </Text>
+          </View>
+        </Card>
 
         {merchants.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
@@ -81,15 +111,15 @@ export default function MerchantSettings() {
         )}
 
         <ImageField
-          label="LOGO MERCHANT" size={80} value={form.logo_url}
+          label="LOGO MERCHANT (square, disarankan 512×512 px, PNG)" size={80} value={form.logo_url}
           onChange={v => setForm({ ...form, logo_url: v })} testID="pick-logo"
         />
         <ImageField
-          label="FOTO HOME (tampilan di list)" value={form.photo_url}
+          label="FOTO HOME (tampilan di list, disarankan 1200×800 px)" value={form.photo_url}
           onChange={v => setForm({ ...form, photo_url: v })} height={140} testID="pick-photo"
         />
         <ImageField
-          label="FOTO BACKGROUND TV" value={form.tv_photo_url}
+          label="FOTO BACKGROUND TV (landscape, disarankan 1920×1080 px)" value={form.tv_photo_url}
           onChange={v => setForm({ ...form, tv_photo_url: v })} height={140} testID="pick-tv-photo"
         />
 

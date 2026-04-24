@@ -17,6 +17,7 @@ export type ThemeColors = {
 export type AppSettings = {
   app_logo_url: string;
   app_name: string;
+  app_tagline: string;
   theme_key: string;
   theme: ThemeColors;
   available_themes: ThemeColors[];
@@ -29,7 +30,8 @@ const FALLBACK: ThemeColors = {
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
-  app_logo_url: '', app_name: 'Lineup',
+  app_logo_url: '', app_name: 'QUELESS',
+  app_tagline: 'Antrian jadi mudah. Pilih merchant, ambil nomor antrean, pantau posisi kamu secara real-time.',
   theme_key: 'slate_emerald', theme: FALLBACK, available_themes: [FALLBACK],
 };
 

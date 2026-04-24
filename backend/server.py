@@ -77,7 +77,8 @@ THEMES = {
 DEFAULT_SETTINGS = {
     "app_logo_url": "",
     "theme_key": "slate_emerald",
-    "app_name": "Lineup",
+    "app_name": "QUELESS",
+    "app_tagline": "Antrian jadi mudah. Pilih merchant, ambil nomor antrean, pantau posisi kamu secara real-time.",
     "midtrans_server_key": "",
     "midtrans_client_key": "",
     "midtrans_is_production": False,
@@ -200,6 +201,10 @@ class MerchantIn(BaseModel):
     photo_url: Optional[str] = ""
     tv_photo_url: Optional[str] = ""
     hours_text: Optional[str] = ""
+    hours_days: Optional[List[int]] = None  # 0=Mon..6=Sun
+    hours_open: Optional[str] = ""  # "09:00"
+    hours_close: Optional[str] = ""  # "21:00"
+    service_enabled: Optional[bool] = True
     is_open: Optional[bool] = True
 
 
@@ -217,6 +222,7 @@ class SettingsIn(BaseModel):
     app_logo_url: Optional[str] = None
     theme_key: Optional[str] = None
     app_name: Optional[str] = None
+    app_tagline: Optional[str] = None
     midtrans_server_key: Optional[str] = None
     midtrans_client_key: Optional[str] = None
     midtrans_is_production: Optional[bool] = None
@@ -238,6 +244,7 @@ class PaymentCreateIn(BaseModel):
 class UpdateSubIn(BaseModel):
     status: Optional[SubStatus] = None
     credits_remaining: Optional[int] = None
+    package_id: Optional[str] = None  # admin can change plan
 
 
 # ---------------------------------------------------------------------------
@@ -256,7 +263,12 @@ def merchant_public(m: dict) -> dict:
         "description": m.get("description", ""), "address": m.get("address", ""),
         "logo_url": m.get("logo_url", ""), "photo_url": m.get("photo_url", ""),
         "tv_photo_url": m.get("tv_photo_url", ""),
-        "hours_text": m.get("hours_text", ""), "is_open": m.get("is_open", True),
+        "hours_text": m.get("hours_text", ""),
+        "hours_days": m.get("hours_days", []),
+        "hours_open": m.get("hours_open", ""),
+        "hours_close": m.get("hours_close", ""),
+        "service_enabled": m.get("service_enabled", True),
+        "is_open": m.get("is_open", True),
         "status": m.get("status", "pending"),
         "categories": m.get("categories", []),
         "created_at": iso(m.get("created_at")),
@@ -405,7 +417,8 @@ async def get_public_settings():
     theme = THEMES.get(s.get("theme_key") or "slate_emerald", THEMES["slate_emerald"])
     return {
         "app_logo_url": s.get("app_logo_url", ""),
-        "app_name": s.get("app_name", "Lineup"),
+        "app_name": s.get("app_name", "QUELESS"),
+        "app_tagline": s.get("app_tagline", DEFAULT_SETTINGS["app_tagline"]),
         "theme_key": theme["key"],
         "theme": theme,
         "available_themes": list(THEMES.values()),
@@ -423,7 +436,8 @@ async def admin_get_full_settings(user: dict = Depends(require_role("admin"))):
     theme = THEMES.get(s.get("theme_key") or "slate_emerald", THEMES["slate_emerald"])
     return {
         "app_logo_url": s.get("app_logo_url", ""),
-        "app_name": s.get("app_name", "Lineup"),
+        "app_name": s.get("app_name", "QUELESS"),
+        "app_tagline": s.get("app_tagline", DEFAULT_SETTINGS["app_tagline"]),
         "theme_key": theme["key"],
         "theme": theme,
         "available_themes": list(THEMES.values()),
@@ -469,7 +483,9 @@ async def list_merchants():
 
 @api.get("/merchants/mine")
 async def my_merchants(user: dict = Depends(require_role("merchant", "admin"))):
-    cursor = db.merchants.find({"owner_id": user["id"]}, {"_id": 0}).limit(100)
+    # Admin sees ALL merchants so they can edit any profile.
+    query = {} if user["role"] == "admin" else {"owner_id": user["id"]}
+    cursor = db.merchants.find(query, {"_id": 0}).sort("created_at", -1).limit(500)
     return [merchant_public(m) async for m in cursor]
 
 
@@ -597,7 +613,20 @@ async def admin_subscriptions(user: dict = Depends(require_role("admin"))):
 
 @api.put("/admin/subscriptions/{sub_id}")
 async def admin_update_subscription(sub_id: str, body: UpdateSubIn, user: dict = Depends(require_role("admin"))):
-    update = {k: v for k, v in body.dict().items() if v is not None}
+    update = {}
+    if body.status is not None:
+        update["status"] = body.status
+    if body.credits_remaining is not None:
+        update["credits_remaining"] = body.credits_remaining
+    if body.package_id is not None:
+        pkg = await db.packages.find_one({"id": body.package_id}, {"_id": 0})
+        if not pkg:
+            raise HTTPException(status_code=404, detail="Package not found")
+        update["package_id"] = pkg["id"]
+        update["package_name"] = pkg["name"]
+        update["credits_remaining"] = pkg["quota_count"]
+        update["expires_at"] = now_utc() + timedelta(days=pkg["duration_days"])
+        update["status"] = "active"
     if not update:
         raise HTTPException(status_code=400, detail="Nothing to update")
     res = await db.subscriptions.update_one({"id": sub_id}, {"$set": update})
@@ -605,6 +634,14 @@ async def admin_update_subscription(sub_id: str, body: UpdateSubIn, user: dict =
         raise HTTPException(status_code=404, detail="Subscription not found")
     s = await db.subscriptions.find_one({"id": sub_id}, {"_id": 0})
     return sub_public(s)
+
+
+@api.delete("/admin/subscriptions/{sub_id}")
+async def admin_delete_subscription(sub_id: str, user: dict = Depends(require_role("admin"))):
+    res = await db.subscriptions.delete_one({"id": sub_id})
+    if res.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------
@@ -1072,6 +1109,55 @@ async def admin_queue_stats(user: dict = Depends(require_role("admin"))):
             "total_today": waiting + called + served_today,
         })
     return out
+
+
+@api.delete("/admin/users/{user_id}")
+async def admin_delete_user(user_id: str, admin: dict = Depends(require_role("admin"))):
+    """Delete a user and all their owned merchants, subscriptions, payments, queue entries."""
+    u = await db.users.find_one({"id": user_id})
+    if not u:
+        raise HTTPException(status_code=404, detail="User not found")
+    if u["role"] == "admin":
+        raise HTTPException(status_code=400, detail="Cannot delete admin account")
+    # collect owned merchants
+    owned = [m["id"] async for m in db.merchants.find({"owner_id": user_id}, {"_id": 0, "id": 1})]
+    if owned:
+        await db.queue_entries.delete_many({"merchant_id": {"$in": owned}})
+        await db.merchants.delete_many({"owner_id": user_id})
+    await db.queue_entries.delete_many({"user_id": user_id})
+    await db.subscriptions.delete_many({"user_id": user_id})
+    await db.payments.delete_many({"user_id": user_id})
+    await db.users.delete_one({"id": user_id})
+    return {"ok": True, "removed_merchants": len(owned)}
+
+
+@api.post("/admin/cleanup-orphans")
+async def admin_cleanup_orphans(admin: dict = Depends(require_role("admin"))):
+    """Remove data that reference deleted users/merchants/packages."""
+    user_ids = {u["id"] async for u in db.users.find({}, {"_id": 0, "id": 1})}
+    merchant_ids = {m["id"] async for m in db.merchants.find({}, {"_id": 0, "id": 1})}
+    package_ids = {p["id"] async for p in db.packages.find({}, {"_id": 0, "id": 1})}
+
+    r1 = await db.merchants.delete_many({"owner_id": {"$nin": list(user_ids)}})
+    r2 = await db.queue_entries.delete_many({"merchant_id": {"$nin": list(merchant_ids)}})
+    r3 = await db.subscriptions.delete_many({
+        "$or": [
+            {"user_id": {"$nin": list(user_ids)}},
+            {"package_id": {"$nin": list(package_ids)}},
+        ]
+    })
+    r4 = await db.payments.delete_many({
+        "$or": [
+            {"user_id": {"$nin": list(user_ids)}},
+            {"package_id": {"$nin": list(package_ids)}},
+        ]
+    })
+    return {
+        "orphan_merchants": r1.deleted_count,
+        "orphan_queue_entries": r2.deleted_count,
+        "orphan_subscriptions": r3.deleted_count,
+        "orphan_payments": r4.deleted_count,
+    }
 
 
 # ---------------------------------------------------------------------------

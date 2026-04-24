@@ -32,13 +32,15 @@ export default function Appearance() {
   const c = useColors();
   const { settings, refresh } = useTheme();
   const [logoUrl, setLogoUrl] = useState(settings.app_logo_url || '');
-  const [appName, setAppName] = useState(settings.app_name || 'Lineup');
+  const [appName, setAppName] = useState(settings.app_name || 'QUELESS');
+  const [appTagline, setAppTagline] = useState(settings.app_tagline || '');
   const [selectedTheme, setSelectedTheme] = useState(settings.theme_key);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     setLogoUrl(settings.app_logo_url || '');
     setAppName(settings.app_name);
+    setAppTagline(settings.app_tagline || '');
     setSelectedTheme(settings.theme_key);
   }, [settings]);
 
@@ -50,7 +52,7 @@ export default function Appearance() {
   async function save() {
     setBusy(true);
     try {
-      await api.updateSettings({ app_logo_url: logoUrl, theme_key: selectedTheme, app_name: appName });
+      await api.updateSettings({ app_logo_url: logoUrl, theme_key: selectedTheme, app_name: appName, app_tagline: appTagline });
       await refresh();
       Alert.alert('Tersimpan', 'Pengaturan tampilan berhasil diperbarui');
     } catch (e: any) {
@@ -93,7 +95,21 @@ export default function Appearance() {
             value={appName}
             onChangeText={setAppName}
             style={[styles.input, { color: c.text, fontFamily: iosFontFamily }]}
-            placeholder="Lineup"
+            placeholder="QUELESS"
+            placeholderTextColor={c.muted}
+          />
+        </Card>
+
+        <Text style={[styles.label, { color: c.muted, fontFamily: iosFontFamily, marginTop: 16 }]}>TAGLINE (tampil di halaman utama)</Text>
+        <Card>
+          <TextInput
+            testID="app-tagline-input"
+            value={appTagline}
+            onChangeText={setAppTagline}
+            multiline
+            numberOfLines={3}
+            style={[styles.input, { color: c.text, fontFamily: iosFontFamily, height: 80, textAlignVertical: 'top', paddingTop: 10 }]}
+            placeholder="Pilih merchant, ambil nomor antrean, pantau posisi kamu secara real-time."
             placeholderTextColor={c.muted}
           />
         </Card>

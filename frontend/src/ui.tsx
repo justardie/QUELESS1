@@ -1,7 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ViewStyle, TextStyle, Image } from 'react-native';
 import { useColors, iosFontFamily, radius } from './themeContext';
-
 export function Card({ children, style }: { children: React.ReactNode; style?: ViewStyle | ViewStyle[] }) {
   const c = useColors();
   return (
@@ -56,6 +55,19 @@ export function MutedText({ children, style, size = 14 }: { children: React.Reac
 export function BodyText({ children, style, size = 15, weight }: { children: React.ReactNode; style?: TextStyle; size?: number; weight?: TextStyle['fontWeight'] }) {
   const c = useColors();
   return <Text style={[{ color: c.text, fontFamily: iosFontFamily, fontSize: size, fontWeight: weight || '400' as any }, style]}>{children}</Text>;
+}
+
+export function ScreenHeader({ title, subtitle, right }: { title: string; subtitle?: string; right?: React.ReactNode }) {
+  const c = useColors();
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontSize: 26, fontWeight: '800', color: c.text, letterSpacing: -0.5, fontFamily: iosFontFamily }}>{title}</Text>
+        {subtitle ? <Text style={{ fontSize: 14, color: c.muted, marginTop: 2, fontFamily: iosFontFamily }}>{subtitle}</Text> : null}
+      </View>
+      {right}
+    </View>
+  );
 }
 
 export function AppLogo({ size = 32 }: { size?: number }) {
