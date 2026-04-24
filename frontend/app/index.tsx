@@ -65,7 +65,9 @@ export default function Home() {
         ListHeaderComponent={
           <View>
             <Hx size={30} style={{ marginBottom: 4 }}>Antrian jadi mudah</Hx>
-            <MutedText size={15} style={{ marginBottom: 20 }}>Pilih merchant, ambil nomor antrian, pantau posisi Anda secara real-time.</MutedText>
+            <MutedText size={15} style={{ marginBottom: 20 }}>
+              {settings.app_tagline || 'Pilih merchant, ambil nomor antrian, pantau posisi Anda secara real-time.'}
+            </MutedText>
 
             {active && (
               <TouchableOpacity
