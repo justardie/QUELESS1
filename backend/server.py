@@ -210,7 +210,7 @@ class MerchantIn(BaseModel):
 
 class JoinQueueIn(BaseModel):
     merchant_id: str
-    category_id: str
+    category_id: Optional[str] = None
     customer_name: Optional[str] = None
 
 
@@ -467,7 +467,12 @@ async def create_merchant(body: MerchantIn, user: dict = Depends(require_role("m
         "name": body.name, "description": body.description or "",
         "address": body.address or "", "logo_url": body.logo_url or "",
         "photo_url": body.photo_url or "", "tv_photo_url": body.tv_photo_url or "",
-        "hours_text": body.hours_text or "", "is_open": body.is_open if body.is_open is not None else True,
+        "hours_text": body.hours_text or "",
+        "hours_days": body.hours_days or [],
+        "hours_open": body.hours_open or "",
+        "hours_close": body.hours_close or "",
+        "service_enabled": body.service_enabled if body.service_enabled is not None else True,
+        "is_open": body.is_open if body.is_open is not None else True,
         "status": "approved" if user["role"] == "admin" else "pending",
         "categories": [], "created_at": now_utc(),
     }
@@ -504,10 +509,15 @@ async def update_merchant(merchant_id: str, body: MerchantIn, user: dict = Depen
         raise HTTPException(status_code=404, detail="Merchant not found")
     if user["role"] != "admin" and m["owner_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Forbidden")
-    update = body.dict()
-    update = {k: (v if v is not None else "") for k, v in update.items()}
-    if body.is_open is not None:
-        update["is_open"] = body.is_open
+    update = body.dict(exclude_unset=False)
+    # Preserve proper types: keep lists/bools as-is; only convert None strings to ""
+    for k, v in list(update.items()):
+        if v is None and k in ("name", "description", "address", "logo_url", "photo_url", "tv_photo_url", "hours_text", "hours_open", "hours_close"):
+            update[k] = ""
+        elif v is None and k == "hours_days":
+            update[k] = []
+        elif v is None and k in ("is_open", "service_enabled"):
+            update[k] = True
     await db.merchants.update_one({"id": merchant_id}, {"$set": update})
     m = await db.merchants.find_one({"id": merchant_id}, {"_id": 0})
     return merchant_public(m)
@@ -882,9 +892,16 @@ async def join_queue(body: JoinQueueIn, user: Optional[dict] = Depends(optional_
         raise HTTPException(status_code=404, detail="Merchant unavailable")
     if not m.get("is_open", True):
         raise HTTPException(status_code=400, detail="Merchant is currently closed")
-    cat = next((c for c in m.get("categories", []) if c["id"] == body.category_id), None)
-    if not cat:
-        raise HTTPException(status_code=404, detail="Category not found")
+
+    service_enabled = m.get("service_enabled", True)
+    cat = None
+    if body.category_id:
+        cat = next((c for c in m.get("categories", []) if c["id"] == body.category_id), None)
+        if not cat:
+            raise HTTPException(status_code=404, detail="Category not found")
+    elif service_enabled and (m.get("categories") or []):
+        raise HTTPException(status_code=400, detail="Please select a service")
+    # else: service disabled OR merchant has no categories → create a general entry
 
     # Subscription enforcement: if packages exist AND user is authenticated customer,
     # require active subscription with remaining credits.
@@ -900,7 +917,8 @@ async def join_queue(body: JoinQueueIn, user: Optional[dict] = Depends(optional_
     number = await next_queue_number(body.merchant_id)
     entry = {
         "id": str(uuid.uuid4()), "merchant_id": body.merchant_id,
-        "category_id": body.category_id, "category_name": cat["name"],
+        "category_id": cat["id"] if cat else "",
+        "category_name": cat["name"] if cat else "Umum",
         "user_id": user["id"] if user else None, "customer_name": customer_name,
         "queue_number": number, "status": "waiting", "created_at": now_utc(),
         "called_at": None, "served_at": None,

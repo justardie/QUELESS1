@@ -61,13 +61,24 @@ export default function MerchantSettings() {
       await api.updateMerchant(form.id, {
         name: form.name, description: form.description, address: form.address,
         logo_url: form.logo_url, photo_url: form.photo_url, tv_photo_url: form.tv_photo_url,
-        hours_text: form.hours_text, is_open: !!form.is_open,
+        hours_text: form.hours_text,
+        hours_days: form.hours_days || [],
+        hours_open: form.hours_open || '',
+        hours_close: form.hours_close || '',
+        service_enabled: form.service_enabled !== false,
+        is_open: !!form.is_open,
       });
       Alert.alert('Tersimpan', 'Profil merchant diperbarui');
       await load();
     } catch (e: any) {
       Alert.alert('Gagal', e.message);
     } finally { setBusy(false); }
+  }
+
+  function toggleDay(d: number) {
+    const cur: number[] = form.hours_days || [];
+    const next = cur.includes(d) ? cur.filter(x => x !== d) : [...cur, d].sort();
+    setForm({ ...form, hours_days: next });
   }
 
   return (
@@ -134,7 +145,67 @@ export default function MerchantSettings() {
         <Card><TextInput value={form.address} onChangeText={v => setForm({ ...form, address: v })} style={[styles.input, { color: c.text, fontFamily: iosFontFamily }]} /></Card>
 
         <Text style={[styles.label, { color: c.muted, fontFamily: iosFontFamily, marginTop: 12 }]}>JAM OPERASIONAL</Text>
-        <Card><TextInput placeholder="mis. Senin-Minggu 09:00-21:00" placeholderTextColor={c.muted} value={form.hours_text} onChangeText={v => setForm({ ...form, hours_text: v })} style={[styles.input, { color: c.text, fontFamily: iosFontFamily }]} /></Card>
+        <Card>
+          <MutedText size={12}>Hari operasional</MutedText>
+          <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+            {['Sen','Sel','Rab','Kam','Jum','Sab','Min'].map((day, i) => {
+              const active = (form.hours_days || []).includes(i);
+              return (
+                <TouchableOpacity
+                  key={i}
+                  testID={`day-${i}`}
+                  onPress={() => toggleDay(i)}
+                  style={{
+                    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10,
+                    borderWidth: 1, borderColor: active ? c.primary : 'rgba(15,23,42,0.08)',
+                    backgroundColor: active ? c.soft : '#fff',
+                  }}
+                >
+                  <Text style={{ color: active ? c.primaryDark : c.muted, fontWeight: '700', fontFamily: iosFontFamily, fontSize: 13 }}>{day}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+            <View style={{ flex: 1 }}>
+              <MutedText size={12}>Buka</MutedText>
+              <TextInput
+                testID="hours-open"
+                value={form.hours_open || ''}
+                onChangeText={v => setForm({ ...form, hours_open: v })}
+                placeholder="09:00"
+                placeholderTextColor={c.muted}
+                style={[styles.input, { color: c.text, fontFamily: iosFontFamily, height: 44, borderWidth: 1, borderColor: 'rgba(15,23,42,0.08)', borderRadius: 12, paddingHorizontal: 12, marginTop: 4 }]}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <MutedText size={12}>Tutup</MutedText>
+              <TextInput
+                testID="hours-close"
+                value={form.hours_close || ''}
+                onChangeText={v => setForm({ ...form, hours_close: v })}
+                placeholder="21:00"
+                placeholderTextColor={c.muted}
+                style={[styles.input, { color: c.text, fontFamily: iosFontFamily, height: 44, borderWidth: 1, borderColor: 'rgba(15,23,42,0.08)', borderRadius: 12, paddingHorizontal: 12, marginTop: 4 }]}
+              />
+            </View>
+          </View>
+          <MutedText size={11} style={{ marginTop: 8 }}>Format 24 jam, mis. 09:00 — 21:00</MutedText>
+        </Card>
+
+        <Card style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flex: 1 }}>
+            <BodyText weight="600">Wajib pilih layanan</BodyText>
+            <MutedText size={13}>Jika OFF, pelanggan langsung ambil nomor tanpa pilih kategori</MutedText>
+          </View>
+          <Switch
+            testID="toggle-service"
+            value={form.service_enabled !== false}
+            onValueChange={v => setForm({ ...form, service_enabled: v })}
+            trackColor={{ true: c.primary, false: '#CBD5E1' }}
+            thumbColor="#fff"
+          />
+        </Card>
 
         <Card style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flex: 1 }}>

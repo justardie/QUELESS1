@@ -46,13 +46,17 @@ export default function MerchantDetail() {
   }, [id]);
 
   async function join() {
-    if ((m?.categories?.length || 0) > 0 && !selected) {
+    const needCategory = m?.service_enabled !== false && (m?.categories?.length || 0) > 0;
+    if (needCategory && !selected) {
       Alert.alert('Pilih layanan', 'Silakan pilih layanan terlebih dahulu');
       return;
     }
     setBusy(true);
     try {
-      const entry: any = await api.joinQueue({ merchant_id: id!, category_id: selected || undefined });
+      const entry: any = await api.joinQueue({
+        merchant_id: id!,
+        category_id: needCategory ? selected : undefined,
+      });
       router.replace(`/customer/queue/${entry.id}`);
     } catch (e: any) {
       Alert.alert('Gagal mengambil antrian', e.message);
@@ -144,38 +148,36 @@ export default function MerchantDetail() {
             )}
           </Card>
 
-          {/* Pilih layanan */}
-          <Text style={[styles.sectionLabel, { color: c.muted, fontFamily: iosFontFamily }]}>PILIH LAYANAN</Text>
-          {(m.categories || []).length === 0 ? (
-            <Card>
-              <BodyText>Belum ada layanan tersedia. Merchant akan segera menambahkan.</BodyText>
-            </Card>
-          ) : (
-            m.categories.map((cat: any) => (
-              <TouchableOpacity
-                key={cat.id}
-                testID={`service-category-${cat.id}`}
-                activeOpacity={0.9}
-                onPress={() => setSelected(cat.id)}
-                style={{ marginBottom: 10 }}
-              >
-                <Card style={[
-                  styles.catCard,
-                  { borderColor: selected === cat.id ? c.primary : 'rgba(15,23,42,0.06)', borderWidth: selected === cat.id ? 2 : 1, backgroundColor: selected === cat.id ? c.soft : '#fff' },
-                ]}>
-                  <View style={{ flex: 1 }}>
-                    <BodyText weight="700" size={16}>{cat.name}</BodyText>
-                    <MutedText size={12} style={{ marginTop: 2 }}>~{cat.avg_service_minutes} menit per antrian</MutedText>
-                  </View>
-                  <View style={[
-                    styles.radio,
-                    selected === cat.id ? { borderColor: c.primary, backgroundColor: c.primary } : { borderColor: 'rgba(15,23,42,0.12)' },
+          {/* Pilih layanan (hanya jika service_enabled=true dan ada categories) */}
+          {m.service_enabled !== false && (m.categories || []).length > 0 && (
+            <>
+              <Text style={[styles.sectionLabel, { color: c.muted, fontFamily: iosFontFamily }]}>PILIH LAYANAN</Text>
+              {m.categories.map((cat: any) => (
+                <TouchableOpacity
+                  key={cat.id}
+                  testID={`service-category-${cat.id}`}
+                  activeOpacity={0.9}
+                  onPress={() => setSelected(cat.id)}
+                  style={{ marginBottom: 10 }}
+                >
+                  <Card style={[
+                    styles.catCard,
+                    { borderColor: selected === cat.id ? c.primary : 'rgba(15,23,42,0.06)', borderWidth: selected === cat.id ? 2 : 1, backgroundColor: selected === cat.id ? c.soft : '#fff' },
                   ]}>
-                    {selected === cat.id && <Ionicons name="checkmark" size={14} color="#fff" />}
-                  </View>
-                </Card>
-              </TouchableOpacity>
-            ))
+                    <View style={{ flex: 1 }}>
+                      <BodyText weight="700" size={16}>{cat.name}</BodyText>
+                      <MutedText size={12} style={{ marginTop: 2 }}>~{cat.avg_service_minutes} menit per antrian</MutedText>
+                    </View>
+                    <View style={[
+                      styles.radio,
+                      selected === cat.id ? { borderColor: c.primary, backgroundColor: c.primary } : { borderColor: 'rgba(15,23,42,0.12)' },
+                    ]}>
+                      {selected === cat.id && <Ionicons name="checkmark" size={14} color="#fff" />}
+                    </View>
+                  </Card>
+                </TouchableOpacity>
+              ))}
+            </>
           )}
         </View>
       </ScrollView>
@@ -186,7 +188,7 @@ export default function MerchantDetail() {
           testID="join-queue-button"
           label={busy ? 'Mengambil nomor…' : isOpen ? 'Ambil nomor antrian' : 'Merchant sedang tutup'}
           onPress={join}
-          disabled={!isOpen || busy || (m.categories?.length > 0 && !selected)}
+          disabled={!isOpen || busy || (m.service_enabled !== false && (m.categories?.length > 0) && !selected)}
         />
       </View>
     </SafeAreaView>

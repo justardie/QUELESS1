@@ -144,14 +144,34 @@ export default function Home() {
                     </Text>
                   </View>
                 </View>
-                {item.hours_text ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 }}>
-                    <Ionicons name="time-outline" size={14} color={c.muted} />
-                    <MutedText size={13}>{item.hours_text}</MutedText>
-                  </View>
-                ) : null}
+                {/* Jam operasional (gunakan hours_days/open/close jika ada, fallback hours_text) */}
+                {(() => {
+                  const parts: string[] = [];
+                  if (item.hours_days && item.hours_days.length && item.hours_open && item.hours_close) {
+                    const daysMap = ['Sen','Sel','Rab','Kam','Jum','Sab','Min'];
+                    const ds: number[] = [...item.hours_days].sort();
+                    // collapse consecutive as range
+                    let label = '';
+                    if (ds.length === 7) label = 'Setiap hari';
+                    else if (ds.every((d, i) => i === 0 || d === ds[i-1]+1)) label = `${daysMap[ds[0]]}–${daysMap[ds[ds.length-1]]}`;
+                    else label = ds.map(d => daysMap[d]).join(', ');
+                    parts.push(`${label} ${item.hours_open}–${item.hours_close}`);
+                  } else if (item.hours_text) {
+                    parts.push(item.hours_text);
+                  }
+                  return parts.length > 0 ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 }}>
+                      <Ionicons name="time-outline" size={14} color={c.muted} />
+                      <MutedText size={13}>{parts[0]}</MutedText>
+                    </View>
+                  ) : null;
+                })()}
                 <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
-                  <Badge label={`${item.categories?.length || 0} layanan`} />
+                  {item.service_enabled === false ? (
+                    <Badge label="Ambil nomor langsung" />
+                  ) : (
+                    <Badge label={`${item.categories?.length || 0} layanan`} />
+                  )}
                 </View>
               </View>
             </Card>
