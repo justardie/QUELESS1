@@ -17,7 +17,6 @@ export default function Auth() {
   const { settings } = useTheme();
   const { user, loading, signIn, signUp, signInWithGoogle } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [role, setRole] = useState<'customer' | 'merchant'>('customer');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -40,7 +39,7 @@ export default function Auth() {
     try {
       const u = mode === 'login'
         ? await signIn(email.trim(), password)
-        : await signUp(email.trim(), password, name.trim(), role);
+        : await signUp(email.trim(), password, name.trim(), 'customer');
       routeByRole(u.role);
     } catch (e: any) {
       Alert.alert('Gagal', e.message || 'Terjadi kesalahan');
@@ -93,19 +92,6 @@ export default function Auth() {
                   placeholder="John Doe" placeholderTextColor={c.muted}
                   style={[styles.input, { color: c.text, fontFamily: iosFontFamily }]}
                 />
-                <Text style={[styles.label, { color: c.muted, fontFamily: iosFontFamily }]}>Tipe akun</Text>
-                <View style={styles.roleRow}>
-                  {(['customer', 'merchant'] as const).map(r => (
-                    <TouchableOpacity
-                      key={r} testID={`role-${r}`}
-                      onPress={() => setRole(r)}
-                      style={[styles.rolePill, role === r && { backgroundColor: c.soft, borderColor: c.primary }]}>
-                      <Text style={[styles.rolePillText, { color: role === r ? c.primaryDark : c.muted, fontFamily: iosFontFamily }]}>
-                        {r === 'customer' ? 'Member' : 'Merchant'}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
               </>
             )}
 

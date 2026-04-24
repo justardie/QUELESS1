@@ -83,6 +83,7 @@ export const api = {
 
   // admin
   adminUsers: () => request('/admin/users'),
+  adminCreateMerchant: (body: any) => request('/admin/merchants/create', { method: 'POST', body: JSON.stringify(body) }),
   adminMerchants: () => request('/admin/merchants'),
   adminUpdateMerchantStatus: (id: string, status: string) => request(`/admin/merchants/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
   adminStats: () => request('/admin/stats'),

@@ -327,14 +327,16 @@ async def register(body: RegisterIn):
     email = body.email.lower().strip()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Email already registered")
-    if body.role == "admin":
-        raise HTTPException(status_code=400, detail="Cannot self-register as admin")
+    # Public registration only allowed for role 'customer' (merchant accounts are created by admin)
+    if body.role != "customer":
+        raise HTTPException(status_code=400, detail="Pendaftaran publik hanya untuk Member. Merchant dibuat oleh admin.")
     user = {
         "id": str(uuid.uuid4()), "email": email,
         "password_hash": hash_password(body.password), "name": body.name,
-        "role": body.role, "created_at": now_utc(),
+        "role": "customer", "created_at": now_utc(),
     }
     await db.users.insert_one(user)
+    # Auto-grant free package sekali saja (jika ada paket gratis default)
     token = create_token(user["id"], user["email"], user["role"])
     return {"token": token, "user": user_public(user)}
 
@@ -614,7 +616,20 @@ async def my_subscriptions(user: dict = Depends(get_current_user)):
     cursor = db.subscriptions.find({"user_id": user["id"]}, {"_id": 0}).sort("created_at", -1).limit(50)
     subs = [sub_public(s) async for s in cursor]
     active = await active_subscription(user["id"])
-    return {"subscriptions": subs, "active": sub_public(active) if active else None}
+    # Per-transaction payment history (each topup preserved)
+    pay_cursor = db.payments.find(
+        {"user_id": user["id"], "status": "paid"}, {"_id": 0}
+    ).sort("paid_at", -1).limit(100)
+    payments = []
+    async for p in pay_cursor:
+        pkg = await db.packages.find_one({"id": p["package_id"]}, {"_id": 0})
+        payments.append({
+            **payment_public(p),
+            "package_name": pkg["name"] if pkg else "Paket",
+            "quota_added": pkg["quota_count"] if pkg else 0,
+            "duration_days": pkg["duration_days"] if pkg else 0,
+        })
+    return {"subscriptions": subs, "active": sub_public(active) if active else None, "payments": payments}
 
 
 @api.get("/admin/subscriptions")
@@ -1196,6 +1211,49 @@ async def admin_queue_stats(user: dict = Depends(require_role("admin"))):
             "total_today": waiting + called + served_today,
         })
     return out
+
+
+@api.post("/admin/merchants/create")
+async def admin_create_merchant(body: dict, admin: dict = Depends(require_role("admin"))):
+    """Admin creates a merchant account + initial merchant profile in one step.
+    Body fields:
+      - name (str, required) - merchant name
+      - email (str, required) - merchant login email
+      - password (str, required) - initial password
+      - phone (str, optional) - admin-only note
+      - business_type (str, optional) - stored as description
+    Returns created user + merchant.
+    """
+    name = (body.get("name") or "").strip()
+    email = (body.get("email") or "").lower().strip()
+    password = body.get("password") or ""
+    phone = (body.get("phone") or "").strip()
+    business_type = (body.get("business_type") or "").strip()
+    if not name or not email or not password:
+        raise HTTPException(status_code=400, detail="Nama, email, dan password wajib diisi")
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(status_code=400, detail="Email sudah terdaftar")
+
+    user_doc = {
+        "id": str(uuid.uuid4()), "email": email,
+        "password_hash": hash_password(password), "name": name,
+        "role": "merchant", "created_at": now_utc(),
+        "phone": phone,  # admin-only note
+    }
+    await db.users.insert_one(user_doc)
+
+    merchant_doc = {
+        "id": str(uuid.uuid4()), "owner_id": user_doc["id"],
+        "name": name, "description": business_type,
+        "address": "", "logo_url": "",
+        "photo_url": "", "tv_photo_url": "", "tv_video_url": "",
+        "hours_text": "", "hours_days": [], "hours_open": "", "hours_close": "",
+        "service_enabled": False, "is_open": True,
+        "status": "approved",  # admin-created are auto-approved
+        "categories": [], "created_at": now_utc(),
+    }
+    await db.merchants.insert_one(merchant_doc)
+    return {"user": user_public(user_doc), "merchant": merchant_public(merchant_doc)}
 
 
 @api.delete("/admin/users/{user_id}")

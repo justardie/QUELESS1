@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors } from '../../src/themeContext';
 import { Card, Hx, MutedText, BodyText, Button, Badge } from '../../src/ui';
+import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../src/bottomDock';
 import { api } from '../../src/api';
 
 export default function MySubscription() {
@@ -20,7 +21,7 @@ export default function MySubscription() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }} edges={['top']}>
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: BOTTOM_DOCK_HEIGHT + 60 }} showsVerticalScrollIndicator={false}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <TouchableOpacity onPress={() => router.back()} style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(15,23,42,0.08)' }}>
             <Ionicons name="arrow-back" size={22} color={c.text} />
@@ -54,27 +55,37 @@ export default function MySubscription() {
           </Card>
         )}
 
-        <Hx size={18} style={{ marginTop: 4, marginBottom: 10 }}>Riwayat</Hx>
-        {(!data || data.subscriptions?.length === 0) && <Card><BodyText>Belum ada riwayat</BodyText></Card>}
-        {data?.subscriptions?.map((s: any) => (
-          <Card key={s.id} style={{ marginBottom: 10 }}>
+        <Hx size={18} style={{ marginTop: 4, marginBottom: 10 }}>Riwayat transaksi</Hx>
+        {(!data || !data.payments || data.payments.length === 0) && <Card><BodyText>Belum ada riwayat transaksi</BodyText></Card>}
+        {data?.payments?.map((p: any) => (
+          <Card key={p.id} style={{ marginBottom: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <View style={{ flex: 1 }}>
-                <BodyText weight="700">{s.package_name}</BodyText>
-                <MutedText size={13}>{new Date(s.created_at).toLocaleDateString('id-ID')}</MutedText>
+                <BodyText weight="700">{p.package_name}</BodyText>
+                <MutedText size={12}>
+                  {p.paid_at ? new Date(p.paid_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}
+                </MutedText>
+                <MutedText size={12}>Order: {p.order_id}</MutedText>
               </View>
-              <Badge
-                label={s.status}
-                color={s.status === 'active' ? '#DCFCE7' : '#F1F5F9'}
-                textColor={s.status === 'active' ? '#065F46' : '#64748B'}
-              />
+              <View style={{ alignItems: 'flex-end' }}>
+                <BodyText weight="700" size={14}>
+                  {p.amount_idr === 0 ? 'GRATIS' : `Rp ${p.amount_idr.toLocaleString('id-ID')}`}
+                </BodyText>
+                <Badge
+                  label="Paid"
+                  color="#DCFCE7"
+                  textColor="#065F46"
+                />
+              </View>
             </View>
-            <View style={{ flexDirection: 'row', gap: 6, marginTop: 8 }}>
-              <Badge label={`Kuota: ${s.credits_remaining}`} />
+            <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
+              <Badge label={`+${p.quota_added} kuota`} />
+              <Badge label={`+${p.duration_days} hari`} />
             </View>
           </Card>
         ))}
       </ScrollView>
+      <BottomDock />
     </SafeAreaView>
   );
 }

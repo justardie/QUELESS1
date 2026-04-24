@@ -77,7 +77,14 @@ export default function Admin() {
         </View>
 
         {tab === 'merchants' ? (
-          merchants.map(m => (
+          <>
+            <Button
+              testID="add-merchant-admin-button"
+              label="+ Tambah Merchant"
+              onPress={() => router.push('/admin/create-merchant')}
+              style={{ marginTop: 10 }}
+            />
+            {merchants.map(m => (
             <Card key={m.id} style={{ marginTop: 10 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{ flex: 1 }}>
@@ -102,7 +109,8 @@ export default function Admin() {
                 )}
               </View>
             </Card>
-          ))
+          ))}
+          </>
         ) : (
           users.map(u => (
             <Card key={u.id} style={{ marginTop: 10, flexDirection: 'row', alignItems: 'center' }}>

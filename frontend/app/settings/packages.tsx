@@ -25,8 +25,18 @@ export default function Packages() {
   async function buy(pkgId: string) {
     try {
       const payment: any = await api.createPayment({ package_id: pkgId });
+      // Paket gratis: backend sudah auto-tandai paid, TIDAK butuh QR. Langsung tampilkan sukses.
+      if (payment.status === 'paid') {
+        const { notify } = await import('../../src/alerts');
+        notify('Paket gratis berhasil diaktifkan! Cek halaman "Paket saya"');
+        router.replace('/settings/subscription');
+        return;
+      }
       router.push(`/payment/${payment.id}`);
-    } catch (e: any) { Alert.alert('Gagal', e.message); }
+    } catch (e: any) {
+      const { notify } = await import('../../src/alerts');
+      notify(e.message, 'Gagal');
+    }
   }
 
   return (
