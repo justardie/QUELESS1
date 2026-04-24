@@ -69,12 +69,8 @@ export function BottomDock() {
 
   async function handleTab(tab: TabItem) {
     if (tab.route === '__logout__') {
-      if (typeof window !== 'undefined' && typeof (window as any).confirm === 'function') {
-        // web: browser confirm
-        // @ts-ignore
-        if (!(window as any).confirm('Keluar dari akun?')) return;
-      }
-      await signOut();
+      // Skip browser confirm (was unreliable). Just sign out immediately and return home.
+      try { await signOut(); } catch {}
       router.replace('/');
       return;
     }

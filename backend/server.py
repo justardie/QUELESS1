@@ -950,15 +950,18 @@ async def join_queue(body: JoinQueueIn, user: Optional[dict] = Depends(optional_
     if not m.get("is_open", True):
         raise HTTPException(status_code=400, detail="Merchant is currently closed")
 
-    service_enabled = m.get("service_enabled", True)
+    # Duplicate queue guard: 1 customer hanya boleh punya 1 antrian aktif di 1 merchant
+    if user:
+        existing = await db.queue_entries.find_one({
+            "merchant_id": body.merchant_id,
+            "user_id": user["id"],
+            "status": {"$in": ["waiting", "called"]},
+        })
+        if existing:
+            raise HTTPException(status_code=400, detail="Anda masih punya antrian aktif di merchant ini (#" + str(existing.get("queue_number", "")) + "). Tunggu sampai selesai.")
+
+    # Services are fully optional — not shown in UI. category_id selalu kosong.
     cat = None
-    if body.category_id:
-        cat = next((c for c in m.get("categories", []) if c["id"] == body.category_id), None)
-        if not cat:
-            raise HTTPException(status_code=404, detail="Category not found")
-    elif service_enabled and (m.get("categories") or []):
-        raise HTTPException(status_code=400, detail="Please select a service")
-    # else: service disabled OR merchant has no categories → create a general entry
 
     # Subscription enforcement: if packages exist AND user is authenticated customer,
     # require active subscription with remaining credits.
@@ -1254,6 +1257,23 @@ async def admin_create_merchant(body: dict, admin: dict = Depends(require_role("
     }
     await db.merchants.insert_one(merchant_doc)
     return {"user": user_public(user_doc), "merchant": merchant_public(merchant_doc)}
+
+
+@api.delete("/admin/merchants/{merchant_id}")
+async def admin_delete_merchant(merchant_id: str, admin: dict = Depends(require_role("admin"))):
+    m = await db.merchants.find_one({"id": merchant_id}, {"_id": 0})
+    if not m:
+        raise HTTPException(status_code=404, detail="Merchant tidak ditemukan")
+    # Cascade: delete queue entries for this merchant, and the merchant doc itself
+    await db.queue_entries.delete_many({"merchant_id": merchant_id})
+    await db.merchants.delete_one({"id": merchant_id})
+    # Optionally also remove the owner user account if role merchant and no other merchants owned
+    owner_id = m.get("owner_id")
+    if owner_id:
+        others = await db.merchants.count_documents({"owner_id": owner_id})
+        if others == 0:
+            await db.users.delete_one({"id": owner_id, "role": "merchant"})
+    return {"ok": True}
 
 
 @api.delete("/admin/users/{user_id}")

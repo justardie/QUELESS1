@@ -172,47 +172,28 @@ export default function MerchantDashboard() {
             <Button testID="call-next-button" label="Panggil berikutnya" onPress={onCallNext} style={{ flex: 1, minWidth: 130 }} />
           </View>
           {called && (
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
-              <Button testID="serve-current-button" label="Selesai" variant="secondary" onPress={() => onServe(called.id)} style={{ flex: 1, minWidth: 100 }} />
-              <Button testID="skip-current-button" label="Lewati" variant="danger" onPress={() => onSkip(called.id)} style={{ flex: 1, minWidth: 100 }} />
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+              <Button testID="skip-current-button" label="Lewati" variant="danger" onPress={() => onSkip(called.id)} style={{ flex: 1 }} />
             </View>
           )}
         </Card>
 
-        {/* Status buka + service_enabled toggles (pindahan dari settings) */}
+        {/* Status buka toggle — service_enabled removed per user request (Services feature fully dropped) */}
         {selected && (
-          <Card style={{ marginTop: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: theme.colors.text, fontSize: 15, fontWeight: '600' }}>Status buka</Text>
-                <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginTop: 2 }}>
-                  {selected.is_open ? 'Pelanggan dapat mengambil nomor' : 'Antrian tidak bisa diambil'}
-                </Text>
-              </View>
-              <Switch
-                testID="toggle-is-open"
-                value={!!selected.is_open}
-                onValueChange={toggleIsOpen}
-                trackColor={{ true: theme.colors.brand, false: '#CBD5E1' }}
-                thumbColor="#fff"
-              />
+          <Card style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.colors.text, fontSize: 15, fontWeight: '600' }}>Status buka</Text>
+              <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginTop: 2 }}>
+                {selected.is_open ? 'Pelanggan dapat mengambil nomor' : 'Antrian tidak bisa diambil'}
+              </Text>
             </View>
-            <View style={{ height: 1, backgroundColor: 'rgba(15,23,42,0.06)', marginVertical: 10 }} />
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 4 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: theme.colors.text, fontSize: 15, fontWeight: '600' }}>Wajib pilih layanan</Text>
-                <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginTop: 2 }}>
-                  {selected.service_enabled ? 'Pelanggan pilih kategori layanan dulu' : 'Pelanggan langsung ambil nomor tanpa pilih'}
-                </Text>
-              </View>
-              <Switch
-                testID="toggle-service-enabled"
-                value={!!selected.service_enabled}
-                onValueChange={toggleServiceEnabled}
-                trackColor={{ true: theme.colors.brand, false: '#CBD5E1' }}
-                thumbColor="#fff"
-              />
-            </View>
+            <Switch
+              testID="toggle-is-open"
+              value={!!selected.is_open}
+              onValueChange={toggleIsOpen}
+              trackColor={{ true: theme.colors.brand, false: '#CBD5E1' }}
+              thumbColor="#fff"
+            />
           </Card>
         )}
 
@@ -232,41 +213,7 @@ export default function MerchantDashboard() {
           </TouchableOpacity>
         )}
 
-        {/* Services management (hanya jika merchant mengaktifkan service_enabled) */}
-        {selected?.service_enabled && (
-          <>
-            <Text style={styles.section}>Layanan</Text>
-            <Card>
-              {(selected?.categories || []).length === 0 ? (
-                <Text style={{ color: theme.colors.textMuted }}>Belum ada layanan</Text>
-              ) : (
-                selected.categories.map((c: any) => (
-                  <View key={c.id} style={styles.catRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.catName}>{c.name}</Text>
-                      <Text style={styles.catSub}>~{c.avg_service_minutes} menit</Text>
-                    </View>
-                    <TouchableOpacity
-                      testID={`delete-category-${c.id}`}
-                      onPress={async () => {
-                        try { await api.deleteCategory(selected.id, c.id); await loadMerchants(); notify('Layanan dihapus'); }
-                        catch (e: any) { notify(e.message, 'Gagal'); }
-                      }}>
-                      <Ionicons name="trash-outline" size={20} color={theme.colors.danger} />
-                    </TouchableOpacity>
-                  </View>
-                ))
-              )}
-              <View style={{ height: 10 }} />
-              <Button
-                testID="add-service-button"
-                label="Tambah layanan"
-                variant="secondary"
-                onPress={addService}
-              />
-            </Card>
-          </>
-        )}
+        {/* Services/Layanan section REMOVED per user request — fokus antrian saja */}
 
         {/* Queue list */}
         <Text style={styles.section}>Waiting ({waiting.length})</Text>

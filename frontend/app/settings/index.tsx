@@ -29,7 +29,7 @@ export default function SettingsHub() {
   const items: { label: string; sub: string; icon: any; to?: string; action?: () => void; show: boolean }[] = [
     { label: 'Paket langganan saya', sub: 'Lihat kuota & riwayat pembelian', icon: 'card-outline', to: '/settings/subscription', show: user.role === 'customer' },
     { label: 'Beli paket', sub: 'Upgrade atau perpanjang', icon: 'bag-handle-outline', to: '/settings/packages', show: user.role === 'customer' },
-    { label: 'Profil merchant', sub: 'Logo, foto, alamat & jam operasional', icon: 'storefront-outline', to: '/settings/merchant', show: user.role === 'merchant' || user.role === 'admin' },
+    { label: 'Profil merchant', sub: 'Logo, foto, alamat & jam operasional', icon: 'storefront-outline', to: '/settings/merchant', show: user.role === 'merchant' },
     { label: 'Tampilan TV & QR code', sub: 'Link display TV + QR scan pelanggan', icon: 'qr-code-outline', to: '/merchant/shares', show: user.role === 'merchant' },
     { label: 'Tampilan aplikasi', sub: 'Logo, nama, tagline & warna tema', icon: 'color-palette-outline', to: '/settings/appearance', show: user.role === 'admin' },
     { label: 'Pembayaran (Midtrans QRIS)', sub: 'Server & client key, mode sandbox/production', icon: 'card-outline', to: '/settings/payments', show: user.role === 'admin' },

@@ -157,13 +157,7 @@ export default function Home() {
                     </View>
                   ) : null;
                 })()}
-                <View style={{ flexDirection: 'row', gap: 6, marginTop: 10 }}>
-                  {item.service_enabled === false ? (
-                    <Badge label="Ambil nomor langsung" />
-                  ) : (
-                    <Badge label={`${item.categories?.length || 0} layanan`} />
-                  )}
-                </View>
+                {/* "X layanan" badge REMOVED globally per user request */}
               </View>
             </Card>
           </TouchableOpacity>

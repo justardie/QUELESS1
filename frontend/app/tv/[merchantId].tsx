@@ -136,8 +136,8 @@ export default function TVDisplay() {
             <Text style={[styles.clockDate, { color: c.muted, fontFamily: iosFontFamily }]}>{formatDate(now)}</Text>
           </View>
 
-          {/* Media panel (YouTube video OR image) */}
-          <View style={[styles.mediaCard, { backgroundColor: '#000', borderColor: 'rgba(15,23,42,0.08)' }]}>
+          {/* Media panel (YouTube video OR image) — landscape 16:9 */}
+          <View style={[styles.mediaCard, { backgroundColor: '#000', borderColor: 'rgba(15,23,42,0.08)', aspectRatio: 16/9 }]}>
             {videoId ? (
               // Web-only iframe embed for YouTube (works in browser / Expo web).
               // @ts-ignore - iframe only exists on web

@@ -5,6 +5,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../../src/theme';
 import { Card, Button, Badge } from '../../../src/ui';
+import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../../src/bottomDock';
 import { api } from '../../../src/api';
 import { notify, requestNotificationPermission } from '../../../src/notifications';
 
@@ -46,7 +47,7 @@ export default function QueueStatus() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.inner}>
         <View style={{ marginBottom: 10 }}>
-          <TouchableOpacity onPress={() => router.replace('/customer/merchants')} style={styles.iconBtn}>
+          <TouchableOpacity onPress={() => router.replace('/')} style={styles.iconBtn}>
             <Ionicons name="close" size={22} color={theme.colors.text} />
           </TouchableOpacity>
         </View>
@@ -82,8 +83,9 @@ export default function QueueStatus() {
         </Card>
 
         <View style={{ flex: 1 }} />
-        <Button label="Back to merchants" variant="secondary" onPress={() => router.replace('/customer/merchants')} />
+        <Button label="Kembali ke beranda" variant="secondary" onPress={() => router.replace('/')} style={{ marginBottom: BOTTOM_DOCK_HEIGHT }} />
       </View>
+      <BottomDock />
     </SafeAreaView>
   );
 }

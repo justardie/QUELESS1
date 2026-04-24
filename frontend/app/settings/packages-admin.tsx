@@ -39,15 +39,11 @@ export default function AdminPackages() {
   }
 
   function del(id: string, name: string) {
-    confirmAction(
-      `Hapus paket "${name}"?`,
-      'Paket akan dihapus permanen.',
-      async () => {
-        try { await api.deletePackage(id); await load(); notify('Paket dihapus'); }
-        catch (e: any) { notify(e.message, 'Gagal'); }
-      },
-      { confirmLabel: 'Hapus', destructive: true }
-    );
+    // Direct delete dengan notify (confirmAction tidak reliable di semua platform)
+    (async () => {
+      try { await api.deletePackage(id); await load(); notify(`Paket "${name}" dihapus`); }
+      catch (e: any) { notify(e.message, 'Gagal menghapus'); }
+    })();
   }
 
   return (

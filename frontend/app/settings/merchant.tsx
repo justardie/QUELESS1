@@ -211,20 +211,6 @@ export default function MerchantSettings() {
 
         <Card style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <View style={{ flex: 1 }}>
-            <BodyText weight="600">Wajib pilih layanan</BodyText>
-            <MutedText size={13}>Jika OFF, pelanggan langsung ambil nomor tanpa pilih kategori</MutedText>
-          </View>
-          <Switch
-            testID="toggle-service"
-            value={form.service_enabled !== false}
-            onValueChange={v => setForm({ ...form, service_enabled: v })}
-            trackColor={{ true: c.primary, false: '#CBD5E1' }}
-            thumbColor="#fff"
-          />
-        </Card>
-
-        <Card style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <View style={{ flex: 1 }}>
             <BodyText weight="600">Status buka</BodyText>
             <MutedText size={13}>Customer hanya bisa ambil nomor saat buka</MutedText>
           </View>

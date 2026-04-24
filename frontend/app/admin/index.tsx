@@ -7,6 +7,7 @@ import { theme } from '../../src/theme';
 import { Card, ScreenHeader, Badge, Button } from '../../src/ui';
 import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../src/bottomDock';
 import { api } from '../../src/api';
+import { notify } from '../../src/alerts';
 import { useAuth } from '../../src/auth';
 
 export default function Admin() {
@@ -99,14 +100,21 @@ export default function Admin() {
               </View>
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
                 {m.status !== 'approved' && (
-                  <Button testID={`approve-${m.id}`} label="Approve" onPress={() => setStatus(m.id, 'approved')} style={{ flex: 1, minWidth: 100 }} />
+                  <Button testID={`approve-${m.id}`} label="Active" onPress={() => setStatus(m.id, 'approved')} style={{ flex: 1, minWidth: 90 }} />
                 )}
                 {m.status !== 'suspended' && (
-                  <Button testID={`suspend-${m.id}`} label="Suspend" variant="secondary" onPress={() => setStatus(m.id, 'suspended')} style={{ flex: 1, minWidth: 100 }} />
+                  <Button testID={`suspend-${m.id}`} label="Suspend" variant="secondary" onPress={() => setStatus(m.id, 'suspended')} style={{ flex: 1, minWidth: 90 }} />
                 )}
-                {m.status !== 'rejected' && (
-                  <Button testID={`reject-${m.id}`} label="Reject" variant="danger" onPress={() => setStatus(m.id, 'rejected')} style={{ flex: 1, minWidth: 100 }} />
-                )}
+                <Button
+                  testID={`delete-merchant-${m.id}`}
+                  label="Hapus"
+                  variant="danger"
+                  onPress={async () => {
+                    try { await api.adminDeleteMerchant(m.id); await load(); notify(`Merchant "${m.name}" dihapus`); }
+                    catch (e: any) { notify(e.message, 'Gagal'); }
+                  }}
+                  style={{ flex: 1, minWidth: 90 }}
+                />
               </View>
             </Card>
           ))}

@@ -1,40 +1,34 @@
 import React, { useEffect, useState } from 'react';
-import { View, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useColors } from '../../src/themeContext';
+import { useColors, iosFontFamily } from '../../src/themeContext';
 import { Card, Hx, MutedText, BodyText, Button, Badge } from '../../src/ui';
 import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../src/bottomDock';
 import { api } from '../../src/api';
-import { confirmAction, notify, promptInput } from '../../src/alerts';
+import { notify } from '../../src/alerts';
 
-// Group subscriptions by customer → 1 card per customer
-type CustomerGroup = {
-  user: any;
-  subs: any[]; // all subs for this user, most recent first
-  active?: any;
-};
+type CustomerGroup = { user: any; subs: any[]; active?: any };
 
 export default function AdminSubscriptions() {
   const router = useRouter();
   const c = useColors();
   const [groups, setGroups] = useState<CustomerGroup[]>([]);
   const [packages, setPackages] = useState<any[]>([]);
+  const [pickerOpen, setPickerOpen] = useState<null | { subId: string; userName: string }>(null);
 
   async function load() {
     const [list, pkgs] = await Promise.all([
       api.adminSubscriptions(),
       api.adminPackages().catch(() => []),
     ]);
-    // group by user_id
     const byUser: Record<string, CustomerGroup> = {};
     for (const s of list) {
       const uid = s.user?.id || 'unknown';
       if (!byUser[uid]) byUser[uid] = { user: s.user, subs: [] };
       byUser[uid].subs.push(s);
     }
-    // sort subs, identify active
     const arr: CustomerGroup[] = Object.values(byUser).map(g => {
       g.subs.sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''));
       g.active = g.subs.find(s => s.status === 'active') || g.subs[0];
@@ -50,46 +44,20 @@ export default function AdminSubscriptions() {
     catch (e: any) { notify(e.message, 'Gagal'); }
   }
 
-  function delSub(subId: string, userName: string) {
-    confirmAction(
-      `Hapus subscription ${userName}?`,
-      'Data tidak dapat dipulihkan.',
-      async () => {
-        try { await api.adminDeleteSubscription(subId); await load(); notify('Subscription terhapus'); }
-        catch (e: any) { notify(e.message, 'Gagal'); }
-      },
-      { confirmLabel: 'Hapus', destructive: true }
-    );
+  async function delUser(userId: string, userName: string) {
+    try { await api.adminDeleteUser(userId); await load(); notify(`Customer "${userName}" dihapus`); }
+    catch (e: any) { notify(e.message, 'Gagal menghapus'); }
   }
 
-  function delUser(userId: string, userName: string) {
-    confirmAction(
-      `Hapus customer "${userName}"?`,
-      'Akun + semua subscription, payment, antrian akan dihapus permanen.',
-      async () => {
-        try { await api.adminDeleteUser(userId); await load(); notify('Customer terhapus'); }
-        catch (e: any) { notify(e.message, 'Gagal'); }
-      },
-      { confirmLabel: 'Hapus', destructive: true }
-    );
-  }
-
-  function activateWithPackage(subId: string) {
-    if (packages.length === 0) { notify('Buat paket dulu di Pengaturan → Paket langganan', 'Belum ada paket'); return; }
-    const active = packages.filter(p => p.active);
-    if (active.length === 0) { notify('Aktifkan minimal 1 paket dulu', 'Tidak ada paket aktif'); return; }
-    const list = active.map((p: any, i: number) => `${i + 1}. ${p.name} (${p.quota_count}× / ${p.duration_days}h)`).join('\n');
-    promptInput(
-      'Pilih paket',
-      `Masukkan nomor paket (1-${active.length}):\n\n${list}`,
-      async (val: string) => {
-        const idx = parseInt(val || '0', 10) - 1;
-        if (idx < 0 || idx >= active.length) { notify('Nomor tidak valid', 'Batal'); return; }
-        try { await api.adminUpdateSubscription(subId, { package_id: active[idx].id, status: 'active' }); await load(); notify(`Paket "${active[idx].name}" diaktifkan`); }
-        catch (e: any) { notify(e.message, 'Gagal'); }
-      },
-      { defaultValue: '1' }
-    );
+  async function pickPackage(pkgId: string) {
+    if (!pickerOpen) return;
+    const subId = pickerOpen.subId;
+    setPickerOpen(null);
+    try {
+      await api.adminUpdateSubscription(subId, { package_id: pkgId, status: 'active' });
+      await load();
+      notify('Paket diaktifkan');
+    } catch (e: any) { notify(e.message, 'Gagal'); }
   }
 
   return (
@@ -132,29 +100,51 @@ export default function AdminSubscriptions() {
                 <MutedText size={13}>Belum ada paket aktif</MutedText>
               )}
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-                {act && <Button testID={`activate-${act.id}`} label="Aktifkan (pilih paket)" onPress={() => activateWithPackage(act.id)} style={{ flex: 1, minWidth: 140 }} />}
+                {act && <Button testID={`activate-${act.id}`} label="Aktifkan (pilih paket)" onPress={() => setPickerOpen({ subId: act.id, userName: uname })} style={{ flex: 1, minWidth: 140 }} />}
                 {act && act.status !== 'suspended' && <Button testID={`suspend-${act.id}`} label="Suspend" variant="secondary" onPress={() => setStatus(act.id, 'suspended')} style={{ flex: 1, minWidth: 100 }} />}
                 {act && act.status !== 'expired' && <Button testID={`expire-${act.id}`} label="Expired" variant="secondary" onPress={() => setStatus(act.id, 'expired')} style={{ flex: 1, minWidth: 100 }} />}
-                {act && <Button testID={`delete-sub-${act.id}`} label="Hapus sub" variant="danger" onPress={() => delSub(act.id, uname)} style={{ flex: 1, minWidth: 100 }} />}
                 {uid && <Button testID={`delete-user-${uid}`} label="Hapus customer" variant="danger" onPress={() => delUser(uid, uname)} style={{ flex: 1, minWidth: 140 }} />}
               </View>
-              {g.subs.length > 1 && (
-                <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(15,23,42,0.05)' }}>
-                  <MutedText size={11}>RIWAYAT ({g.subs.length} paket):</MutedText>
-                  {g.subs.slice(1).map(s => (
-                    <View key={s.id} style={{ flexDirection: 'row', marginTop: 6, gap: 6 }}>
-                      <MutedText size={12}>• {s.package_name}</MutedText>
-                      <MutedText size={12}>({s.status})</MutedText>
-                      <MutedText size={12}>{new Date(s.created_at).toLocaleDateString('id-ID')}</MutedText>
-                    </View>
-                  ))}
-                </View>
-              )}
             </Card>
           );
         })}
       </ScrollView>
+
+      {/* Package picker modal */}
+      <Modal visible={!!pickerOpen} transparent animationType="fade" onRequestClose={() => setPickerOpen(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { backgroundColor: c.bg }]}>
+            <Hx size={18}>Pilih paket untuk {pickerOpen?.userName}</Hx>
+            <MutedText size={13} style={{ marginTop: 4 }}>Paket akan di-accumulate ke subscription existing</MutedText>
+            <ScrollView style={{ maxHeight: 360, marginTop: 12 }}>
+              {packages.filter(p => p.active).length === 0 && (
+                <Card><BodyText>Tidak ada paket aktif. Buat paket dulu di "Paket langganan".</BodyText></Card>
+              )}
+              {packages.filter(p => p.active).map((p: any) => (
+                <TouchableOpacity key={p.id} testID={`pick-package-${p.id}`} onPress={() => pickPackage(p.id)} style={{ marginBottom: 8 }}>
+                  <Card>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={{ flex: 1 }}>
+                        <BodyText weight="700">{p.name}</BodyText>
+                        <MutedText size={13}>{p.quota_count} kuota • {p.duration_days} hari • Rp {p.price_idr.toLocaleString('id-ID')}</MutedText>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color={c.muted} />
+                    </View>
+                  </Card>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <Button label="Batal" variant="secondary" onPress={() => setPickerOpen(null)} style={{ marginTop: 8 }} />
+          </View>
+        </View>
+      </Modal>
+
       <BottomDock />
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  modalCard: { padding: 20, borderRadius: 20, elevation: 8, maxHeight: '85%' },
+});
