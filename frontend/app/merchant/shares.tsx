@@ -99,8 +99,7 @@ export default function MerchantShares() {
                 <Text numberOfLines={1} style={[styles.urlText, { color: c.primaryDark, fontFamily: iosFontFamily }]}>{tvUrl}</Text>
               </View>
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
-                <Button testID="copy-tv-url" label="Salin link" variant="secondary" onPress={() => copy(tvUrl, 'Link TV')} style={{ flex: 1 }} />
-                <Button testID="open-tv" label="Buka TV" onPress={() => router.push(`/tv/${selected.id}`)} style={{ flex: 1 }} />
+                <Button testID="copy-tv-url" label="Salin link" onPress={() => copy(tvUrl, 'Link TV')} style={{ flex: 1 }} />
               </View>
             </Card>
 
@@ -122,8 +121,7 @@ export default function MerchantShares() {
               <MutedText size={11} style={{ marginTop: 10, textAlign: 'center' }}>{qrUrl}</MutedText>
 
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 14, alignSelf: 'stretch' }}>
-                <Button testID="copy-qr-url" label="Salin link" variant="secondary" onPress={() => copy(qrUrl, 'Link QR')} style={{ flex: 1 }} />
-                <Button testID="open-qr-page" label="Halaman QR" onPress={() => router.push(`/merchant-qr/${selected.id}`)} style={{ flex: 1 }} />
+                <Button testID="open-qr-page" label="Download QR" onPress={() => router.push(`/merchant-qr/${selected.id}`)} style={{ flex: 1 }} />
               </View>
             </Card>
           </>

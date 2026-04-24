@@ -49,7 +49,6 @@ export default function Admin() {
         <ScreenHeader
           title="Admin"
           subtitle={user?.email}
-          right={<TouchableOpacity testID="logout-button" onPress={handleLogout} style={styles.iconBtn}><Ionicons name="log-out-outline" size={22} color={theme.colors.text} /></TouchableOpacity>}
         />
 
         {/* Stats */}
@@ -121,12 +120,6 @@ export default function Admin() {
         )}
 
         <View style={{ height: 24 }} />
-        <View style={{ flexDirection: 'row', gap: 10 }}>
-          <Button testID="open-settings-from-admin" label="Pengaturan" onPress={() => router.push('/settings')} style={{ flex: 1 }} />
-          <Button testID="open-tv" label="Tampilan TV" variant="secondary" onPress={() => router.push('/tv')} style={{ flex: 1 }} />
-        </View>
-        <View style={{ height: 10 }} />
-        <Button testID="logout-button-bottom" label="Keluar" variant="danger" onPress={handleLogout} />
       </ScrollView>
       <BottomDock />
     </SafeAreaView>

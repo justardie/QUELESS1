@@ -8,6 +8,7 @@ import { useColors, iosFontFamily } from '../../src/themeContext';
 import { useTheme } from '../../src/themeContext';
 import { Card, Hx, MutedText, BodyText, Button } from '../../src/ui';
 import { api } from '../../src/api';
+import { notify } from '../../src/alerts';
 
 async function pickImageAsBase64(): Promise<string | null> {
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -54,7 +55,7 @@ export default function Appearance() {
     try {
       await api.updateSettings({ app_logo_url: logoUrl, theme_key: selectedTheme, app_name: appName, app_tagline: appTagline });
       await refresh();
-      Alert.alert('Tersimpan', 'Pengaturan tampilan berhasil diperbarui');
+      notify('Pengaturan tampilan disimpan');
     } catch (e: any) {
       Alert.alert('Gagal', e.message);
     } finally { setBusy(false); }

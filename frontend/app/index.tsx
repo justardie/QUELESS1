@@ -37,6 +37,11 @@ export default function Home() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Merchant role tidak perlu home — langsung ke dashboard
+  useEffect(() => {
+    if (user?.role === 'merchant') router.replace('/merchant/dashboard');
+  }, [user, router]);
+
   function routeForUser() {
     if (!user) return router.push('/auth');
     if (user.role === 'admin') return router.push('/admin');
@@ -46,24 +51,10 @@ export default function Home() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.bg }]} edges={['top']}>
-      {/* Header */}
+      {/* Header — logo + app name centered, no side buttons (dock handles navigation) */}
       <View style={styles.header}>
-        <AppHeaderLogo logoUrl={settings.app_logo_url} size={36} />
+        <AppHeaderLogo logoUrl={settings.app_logo_url} size={32} />
         <Text style={[styles.appName, { color: c.text, fontFamily: iosFontFamily }]}>{settings.app_name || 'QUELESS'}</Text>
-        <View style={{ flex: 1 }} />
-        {user ? (
-          <TouchableOpacity testID="open-settings" onPress={() => router.push('/settings')} style={[styles.iconBtn, { backgroundColor: '#fff', borderWidth: 1, borderColor: 'rgba(15,23,42,0.08)' }]}>
-            <Ionicons name="settings-outline" size={20} color={c.text} />
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            testID="header-signin"
-            onPress={() => router.push('/auth')}
-            style={[styles.signInBtn, { backgroundColor: c.primary }]}
-          >
-            <Text style={[styles.signInText, { fontFamily: iosFontFamily }]}>Masuk</Text>
-          </TouchableOpacity>
-        )}
       </View>
 
       <FlatList
@@ -92,8 +83,6 @@ export default function Home() {
                 </Card>
               </TouchableOpacity>
             )}
-
-            <Text style={[styles.sectionLabel, { color: c.muted, fontFamily: iosFontFamily }]}>MERCHANT TERDAFTAR</Text>
           </View>
         }
         ListEmptyComponent={
@@ -104,6 +93,7 @@ export default function Home() {
             </Card>
           )
         }
+        showsVerticalScrollIndicator={false}
         renderItem={({ item }) => (
           <TouchableOpacity
             testID={`merchant-card-${item.id}`}
@@ -186,8 +176,8 @@ export default function Home() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  appName: { fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
+  header: { paddingHorizontal: 16, paddingVertical: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  appName: { fontSize: 20, fontWeight: '500', letterSpacing: -0.3 },
   iconBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   signInBtn: { paddingHorizontal: 18, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   signInText: { color: '#fff', fontWeight: '700', fontSize: 14 },

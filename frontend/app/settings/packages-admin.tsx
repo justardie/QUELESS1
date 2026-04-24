@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useColors, iosFontFamily } from '../../src/themeContext';
 import { Card, Hx, MutedText, BodyText, Button, Badge } from '../../src/ui';
 import { api } from '../../src/api';
+import { confirmAction, notify } from '../../src/alerts';
 
 function fmtIDR(n: number) {
   return 'Rp ' + n.toLocaleString('id-ID');
@@ -33,14 +34,20 @@ export default function AdminPackages() {
       else await api.createPackage(editing);
       setEditing(null);
       await load();
-    } catch (e: any) { Alert.alert('Gagal', e.message); }
+      notify('Paket disimpan');
+    } catch (e: any) { notify(e.message, 'Gagal'); }
   }
 
-  async function del(id: string) {
-    Alert.alert('Hapus paket?', '', [
-      { text: 'Batal', style: 'cancel' },
-      { text: 'Hapus', style: 'destructive', onPress: async () => { await api.deletePackage(id); await load(); } },
-    ]);
+  function del(id: string, name: string) {
+    confirmAction(
+      `Hapus paket "${name}"?`,
+      'Paket akan dihapus permanen.',
+      async () => {
+        try { await api.deletePackage(id); await load(); notify('Paket dihapus'); }
+        catch (e: any) { notify(e.message, 'Gagal'); }
+      },
+      { confirmLabel: 'Hapus', destructive: true }
+    );
   }
 
   return (
@@ -102,7 +109,7 @@ export default function AdminPackages() {
                 <Ionicons name="create-outline" size={20} color={c.primaryDark} />
               </TouchableOpacity>
               <View style={{ width: 8 }} />
-              <TouchableOpacity testID={`delete-${p.id}`} onPress={() => del(p.id)} style={styles.smallBtn}>
+              <TouchableOpacity testID={`delete-${p.id}`} onPress={() => del(p.id, p.name)} style={styles.smallBtn}>
                 <Ionicons name="trash-outline" size={20} color="#DC2626" />
               </TouchableOpacity>
             </View>

@@ -1056,6 +1056,33 @@ async def call_next(merchant_id: str, category_id: Optional[str] = None,
     return {"entry": entry_public(entry) if entry else None}
 
 
+@api.post("/merchants/{merchant_id}/queue/call-prev")
+async def call_prev(merchant_id: str, user: dict = Depends(get_current_user)):
+    """Re-call the most recent called/served entry (for 'Panggil sebelumnya' button)."""
+    m = await db.merchants.find_one({"id": merchant_id})
+    if not m:
+        raise HTTPException(status_code=404, detail="Merchant not found")
+    if user["role"] != "admin" and m["owner_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    # Find most recent called or served entry
+    e = await db.queue_entries.find_one(
+        {"merchant_id": merchant_id, "status": {"$in": ["called", "served"]}},
+        sort=[("called_at", -1)],
+    )
+    if not e:
+        raise HTTPException(status_code=404, detail="Tidak ada antrian sebelumnya untuk dipanggil")
+    # If currently called entry exists, demote it first to 'served' so only one 'called' at a time
+    await db.queue_entries.update_many(
+        {"merchant_id": merchant_id, "status": "called", "id": {"$ne": e["id"]}},
+        {"$set": {"status": "served", "served_at": now_utc()}},
+    )
+    await db.queue_entries.update_one(
+        {"id": e["id"]}, {"$set": {"status": "called", "called_at": now_utc()}}
+    )
+    entry = await db.queue_entries.find_one({"id": e["id"]}, {"_id": 0})
+    return {"entry": entry_public(entry) if entry else None}
+
+
 @api.post("/merchants/{merchant_id}/queue/{entry_id}/skip")
 async def skip_entry(merchant_id: str, entry_id: str, user: dict = Depends(get_current_user)):
     m = await db.merchants.find_one({"id": merchant_id})

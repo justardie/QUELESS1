@@ -57,6 +57,7 @@ export const api = {
   myActiveQueues: () => request('/queue/mine/active'),
   merchantQueue: (id: string) => request(`/merchants/${id}/queue`),
   callNext: (id: string, categoryId?: string) => request(`/merchants/${id}/queue/next${categoryId ? `?category_id=${categoryId}` : ''}`, { method: 'POST' }),
+  callPrev: (id: string) => request(`/merchants/${id}/queue/call-prev`, { method: 'POST' }),
   serveEntry: (id: string, entryId: string) => request(`/merchants/${id}/queue/${entryId}/serve`, { method: 'POST' }),
   skipEntry: (id: string, entryId: string) => request(`/merchants/${id}/queue/${entryId}/skip`, { method: 'POST' }),
   tv: (id: string) => request(`/merchants/${id}/queue/tv`),

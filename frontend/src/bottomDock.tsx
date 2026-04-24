@@ -21,13 +21,14 @@ function getTabs(role?: string): TabItem[] {
       { key: 'home', label: 'Beranda', icon: 'home-outline', iconActive: 'home', route: '/', matchPrefix: ['/'] },
       { key: 'admin', label: 'Admin', icon: 'shield-outline', iconActive: 'shield', route: '/admin', matchPrefix: ['/admin'] },
       { key: 'settings', label: 'Pengaturan', icon: 'settings-outline', iconActive: 'settings', route: '/settings', matchPrefix: ['/settings'] },
+      { key: 'logout', label: 'Keluar', icon: 'log-out-outline', iconActive: 'log-out', route: '__logout__', matchPrefix: [] },
     ];
   }
   if (role === 'merchant') {
     return [
-      { key: 'home', label: 'Beranda', icon: 'home-outline', iconActive: 'home', route: '/', matchPrefix: ['/'] },
-      { key: 'dash', label: 'Dashboard', icon: 'grid-outline', iconActive: 'grid', route: '/merchant/dashboard', matchPrefix: ['/merchant'] },
+      { key: 'dash', label: 'Dashboard', icon: 'grid-outline', iconActive: 'grid', route: '/merchant/dashboard', matchPrefix: ['/merchant', '/'] },
       { key: 'settings', label: 'Pengaturan', icon: 'settings-outline', iconActive: 'settings', route: '/settings', matchPrefix: ['/settings'] },
+      { key: 'logout', label: 'Keluar', icon: 'log-out-outline', iconActive: 'log-out', route: '__logout__', matchPrefix: [] },
     ];
   }
   if (role === 'customer') {
@@ -35,6 +36,7 @@ function getTabs(role?: string): TabItem[] {
       { key: 'home', label: 'Beranda', icon: 'home-outline', iconActive: 'home', route: '/', matchPrefix: ['/'] },
       { key: 'queue', label: 'Antrian', icon: 'receipt-outline', iconActive: 'receipt', route: '/customer/my-queue', matchPrefix: ['/customer/my-queue', '/customer/queue'] },
       { key: 'settings', label: 'Pengaturan', icon: 'settings-outline', iconActive: 'settings', route: '/settings', matchPrefix: ['/settings'] },
+      { key: 'logout', label: 'Keluar', icon: 'log-out-outline', iconActive: 'log-out', route: '__logout__', matchPrefix: [] },
     ];
   }
   // Guest
@@ -62,31 +64,45 @@ export function BottomDock() {
   const pathname = usePathname() || '/';
   const insets = useSafeAreaInsets();
   const c = useColors();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const tabs = getTabs(user?.role);
+
+  async function handleTab(tab: TabItem) {
+    if (tab.route === '__logout__') {
+      if (typeof window !== 'undefined' && typeof (window as any).confirm === 'function') {
+        // web: browser confirm
+        // @ts-ignore
+        if (!(window as any).confirm('Keluar dari akun?')) return;
+      }
+      await signOut();
+      router.replace('/');
+      return;
+    }
+    if (pathname !== tab.route) router.push(tab.route as any);
+  }
 
   return (
     <View style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 10) }]} pointerEvents="box-none">
       <View style={[styles.dock, { backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.92)' : '#ffffff', borderColor: 'rgba(15,23,42,0.06)' }]}>
         {tabs.map(tab => {
-          const active = isActive(pathname, tab);
+          const active = tab.route !== '__logout__' && isActive(pathname, tab);
           return (
             <TouchableOpacity
               key={tab.key}
               testID={`tab-${tab.key}`}
               activeOpacity={0.7}
-              onPress={() => { if (pathname !== tab.route) router.push(tab.route as any); }}
+              onPress={() => handleTab(tab)}
               style={styles.tab}
             >
               <Ionicons
                 name={active ? tab.iconActive : tab.icon}
-                size={24}
-                color={active ? c.primaryDark : c.muted}
+                size={22}
+                color={active ? c.primaryDark : (tab.key === 'logout' ? '#dc2626' : c.muted)}
               />
               <Text
                 style={[
                   styles.label,
-                  { color: active ? c.primaryDark : c.muted, fontFamily: iosFontFamily, fontWeight: active ? '600' : '500' },
+                  { color: active ? c.primaryDark : (tab.key === 'logout' ? '#dc2626' : c.muted), fontFamily: iosFontFamily, fontWeight: active ? '600' : '500' },
                 ]}
               >
                 {tab.label}

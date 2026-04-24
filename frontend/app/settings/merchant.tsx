@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useColors, iosFontFamily } from '../../src/themeContext';
 import { Card, Hx, MutedText, BodyText, Button } from '../../src/ui';
 import { api } from '../../src/api';
+import { notify } from '../../src/alerts';
 
 async function pickImage(): Promise<string | null> {
   const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -69,7 +70,7 @@ export default function MerchantSettings() {
         service_enabled: form.service_enabled !== false,
         is_open: !!form.is_open,
       });
-      Alert.alert('Tersimpan', 'Profil merchant diperbarui');
+      notify('Profil merchant disimpan');
       await load();
     } catch (e: any) {
       Alert.alert('Gagal', e.message);
