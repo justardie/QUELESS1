@@ -55,6 +55,11 @@ export default function MerchantDashboard() {
   async function onServe(id: string) { await api.serveEntry(selected.id, id); await loadQueue(); }
   async function onSkip(id: string) { await api.skipEntry(selected.id, id); await loadQueue(); }
 
+  async function handleLogout() {
+    await signOut();
+    router.replace('/');
+  }
+
   if (loading) return <View style={styles.center}><ActivityIndicator color={theme.colors.brand} /></View>;
 
   if (merchants.length === 0) {
@@ -64,7 +69,7 @@ export default function MerchantDashboard() {
           <ScreenHeader
             title="Welcome"
             subtitle="Set up your first merchant profile"
-            right={<TouchableOpacity testID="logout-button" onPress={signOut} style={styles.iconBtn}><Ionicons name="log-out-outline" size={22} color={theme.colors.text} /></TouchableOpacity>}
+            right={<TouchableOpacity testID="logout-button" onPress={handleLogout} style={styles.iconBtn}><Ionicons name="log-out-outline" size={22} color={theme.colors.text} /></TouchableOpacity>}
           />
           <Card style={{ alignItems: 'center', paddingVertical: 40 }}>
             <Ionicons name="storefront-outline" size={48} color={theme.colors.brandDark} />
@@ -93,7 +98,7 @@ export default function MerchantDashboard() {
         <ScreenHeader
           title="Dashboard"
           subtitle={user?.email}
-          right={<TouchableOpacity testID="logout-button" onPress={signOut} style={styles.iconBtn}><Ionicons name="log-out-outline" size={22} color={theme.colors.text} /></TouchableOpacity>}
+          right={<TouchableOpacity testID="logout-button" onPress={handleLogout} style={styles.iconBtn}><Ionicons name="log-out-outline" size={22} color={theme.colors.text} /></TouchableOpacity>}
         />
 
         {/* merchant tabs */}

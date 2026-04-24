@@ -44,7 +44,7 @@ export function Badge({ label, color, textColor }: { label: string; color?: stri
 
 export function Hx({ children, size = 22, style }: { children: React.ReactNode; size?: number; style?: TextStyle }) {
   const c = useColors();
-  return <Text style={[{ color: c.text, fontFamily: iosFontFamily, fontSize: size, fontWeight: '800', letterSpacing: -0.5 }, style]}>{children}</Text>;
+  return <Text style={[{ color: c.text, fontFamily: iosFontFamily, fontSize: size, fontWeight: '600', letterSpacing: -0.4 }, style]}>{children}</Text>;
 }
 
 export function MutedText({ children, style, size = 14 }: { children: React.ReactNode; style?: TextStyle; size?: number }) {
@@ -62,7 +62,7 @@ export function ScreenHeader({ title, subtitle, right }: { title: string; subtit
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 26, fontWeight: '800', color: c.text, letterSpacing: -0.5, fontFamily: iosFontFamily }}>{title}</Text>
+        <Text style={{ fontSize: 26, fontWeight: '600', color: c.text, letterSpacing: -0.4, fontFamily: iosFontFamily }}>{title}</Text>
         {subtitle ? <Text style={{ fontSize: 14, color: c.muted, marginTop: 2, fontFamily: iosFontFamily }}>{subtitle}</Text> : null}
       </View>
       {right}
