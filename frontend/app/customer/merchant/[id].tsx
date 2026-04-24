@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image, Dimensions,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image, Dimensions, Modal, TextInput, Platform, KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -9,6 +9,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useColors, iosFontFamily } from '../../../src/themeContext';
 import { Card, Button, MutedText, BodyText, Hx } from '../../../src/ui';
 import { api } from '../../../src/api';
+import { useAuth } from '../../../src/auth';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const HERO_H = Math.min(SCREEN_H * 0.42, 360);
@@ -17,10 +18,13 @@ export default function MerchantDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const c = useColors();
+  const { user } = useAuth();
   const [m, setM] = useState<any | null>(null);
   const [tv, setTv] = useState<any | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [showNameModal, setShowNameModal] = useState(false);
+  const [customerName, setCustomerName] = useState('');
 
   useEffect(() => {
     let alive = true;
@@ -45,7 +49,22 @@ export default function MerchantDetail() {
     return () => { alive = false; clearInterval(timer); };
   }, [id]);
 
-  async function join() {
+  async function onJoinPressed() {
+    // Merchant hanya boleh ambil nomor di merchantnya sendiri
+    if (user?.role === 'merchant') {
+      if (m?.owner_id !== user.id) {
+        Alert.alert('Tidak diizinkan', 'Akun merchant hanya dapat mengambil nomor antrian di toko sendiri.');
+        return;
+      }
+      // Minta input nama pelanggan sebelum join
+      setCustomerName('');
+      setShowNameModal(true);
+      return;
+    }
+    await doJoin();
+  }
+
+  async function doJoin(nameOverride?: string) {
     const needCategory = m?.service_enabled !== false && (m?.categories?.length || 0) > 0;
     if (needCategory && !selected) {
       Alert.alert('Pilih layanan', 'Silakan pilih layanan terlebih dahulu');
@@ -56,7 +75,9 @@ export default function MerchantDetail() {
       const entry: any = await api.joinQueue({
         merchant_id: id!,
         category_id: needCategory ? selected : undefined,
+        customer_name: nameOverride,
       });
+      setShowNameModal(false);
       router.replace(`/customer/queue/${entry.id}`);
     } catch (e: any) {
       Alert.alert('Gagal mengambil antrian', e.message);
@@ -187,10 +208,49 @@ export default function MerchantDetail() {
         <Button
           testID="join-queue-button"
           label={busy ? 'Mengambil nomor…' : isOpen ? 'Ambil nomor antrian' : 'Merchant sedang tutup'}
-          onPress={join}
+          onPress={onJoinPressed}
           disabled={!isOpen || busy || (m.service_enabled !== false && (m.categories?.length > 0) && !selected)}
         />
       </View>
+
+      {/* Modal input nama pelanggan (untuk merchant ambil nomor di toko sendiri) */}
+      <Modal
+        visible={showNameModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowNameModal(false)}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+          <View style={styles.modalBackdrop}>
+            <View style={[styles.modalCard, { backgroundColor: c.bg }]}>
+              <Hx size={18}>Nama pelanggan</Hx>
+              <MutedText size={13} style={{ marginTop: 6 }}>Isi nama untuk ditampilkan di antrian</MutedText>
+              <TextInput
+                testID="name-input"
+                value={customerName}
+                onChangeText={setCustomerName}
+                placeholder="mis. Budi"
+                placeholderTextColor={c.muted}
+                autoFocus
+                style={[styles.modalInput, { color: c.text, fontFamily: iosFontFamily }]}
+              />
+              <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                <Button label="Batal" variant="secondary" onPress={() => setShowNameModal(false)} style={{ flex: 1 }} />
+                <Button
+                  testID="confirm-name-button"
+                  label={busy ? 'Memproses…' : 'Lanjutkan'}
+                  onPress={() => {
+                    if (!customerName.trim()) { Alert.alert('Nama diperlukan', 'Mohon isi nama pelanggan.'); return; }
+                    doJoin(customerName.trim());
+                  }}
+                  disabled={busy}
+                  style={{ flex: 1 }}
+                />
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -217,4 +277,7 @@ const styles = StyleSheet.create({
   catCard: { flexDirection: 'row', alignItems: 'center' },
   radio: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   footer: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20, borderTopWidth: 1, borderTopColor: 'rgba(15,23,42,0.06)' },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  modalCard: { padding: 20, borderRadius: 20, elevation: 8 },
+  modalInput: { marginTop: 12, height: 48, borderWidth: 1, borderColor: 'rgba(15,23,42,0.1)', borderRadius: 12, paddingHorizontal: 14, fontSize: 16 },
 });

@@ -61,6 +61,7 @@ export default function MerchantSettings() {
       await api.updateMerchant(form.id, {
         name: form.name, description: form.description, address: form.address,
         logo_url: form.logo_url, photo_url: form.photo_url, tv_photo_url: form.tv_photo_url,
+        tv_video_url: form.tv_video_url || '',
         hours_text: form.hours_text,
         hours_days: form.hours_days || [],
         hours_open: form.hours_open || '',
@@ -134,6 +135,20 @@ export default function MerchantSettings() {
           label="FOTO BACKGROUND TV (landscape, disarankan 1920×1080 px)" value={form.tv_photo_url}
           onChange={v => setForm({ ...form, tv_photo_url: v })} height={140} testID="pick-tv-photo"
         />
+
+        <Text style={[styles.label, { color: c.muted, fontFamily: iosFontFamily, marginTop: 12 }]}>VIDEO TV (OPSIONAL)</Text>
+        <Card>
+          <TextInput
+            testID="tv-video-url"
+            value={form.tv_video_url || ''}
+            onChangeText={v => setForm({ ...form, tv_video_url: v })}
+            placeholder="mis. https://www.youtube.com/watch?v=xxxxxxx"
+            placeholderTextColor={c.muted}
+            autoCapitalize="none"
+            style={[styles.input, { color: c.text, fontFamily: iosFontFamily }]}
+          />
+          <MutedText size={11} style={{ marginTop: 6 }}>Jika diisi, TV akan memutar video YouTube (mengesampingkan foto background).</MutedText>
+        </Card>
 
         <Text style={[styles.label, { color: c.muted, fontFamily: iosFontFamily }]}>NAMA MERCHANT</Text>
         <Card><TextInput value={form.name} onChangeText={v => setForm({ ...form, name: v })} style={[styles.input, { color: c.text, fontFamily: iosFontFamily }]} /></Card>

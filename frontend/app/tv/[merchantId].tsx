@@ -1,116 +1,200 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, useWindowDimensions, Image } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, useWindowDimensions, Image, Platform } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useColors, iosFontFamily } from '../../src/themeContext';
 import { api } from '../../src/api';
 
+function extractYouTubeId(url: string): string | null {
+  if (!url) return null;
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([A-Za-z0-9_-]{6,})/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+function formatTime(d: Date) {
+  const hh = d.getHours().toString().padStart(2, '0');
+  const mm = d.getMinutes().toString().padStart(2, '0');
+  return `${hh}:${mm}`;
+}
+function formatDate(d: Date) {
+  const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+  const months = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  return `${days[d.getDay()]}, ${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
 export default function TVDisplay() {
   const { merchantId } = useLocalSearchParams<{ merchantId: string }>();
   const c = useColors();
   const [data, setData] = useState<any | null>(null);
-  const { width, height } = useWindowDimensions();
+  const [appName, setAppName] = useState<string>('QUELESS');
+  const [now, setNow] = useState<Date>(new Date());
+  const { width } = useWindowDimensions();
   const landscape = width > 700;
 
   useEffect(() => {
     let alive = true;
     async function tick() {
-      try { const d = await api.tv(merchantId!); if (alive) setData(d); } catch {}
+      try {
+        const d = await api.tv(merchantId!);
+        if (alive) setData(d);
+      } catch {}
     }
-    tick();
+    async function loadSettings() {
+      try { const s: any = await api.getSettings(); if (alive && s?.app_name) setAppName(s.app_name); } catch {}
+    }
+    tick(); loadSettings();
     const t = setInterval(tick, 2500);
-    return () => { alive = false; clearInterval(t); };
+    const clock = setInterval(() => setNow(new Date()), 1000);
+    return () => { alive = false; clearInterval(t); clearInterval(clock); };
   }, [merchantId]);
 
   if (!data) {
-    return <View style={styles.center}><ActivityIndicator color={c.primary} /></View>;
+    return <View style={[styles.center, { backgroundColor: c.bg }]}><ActivityIndicator color={c.primary} /></View>;
   }
 
-  const bgUrl = data.merchant?.tv_photo_url || data.merchant?.photo_url || '';
   const nowNum = data.now_serving?.queue_number;
-  const numSize = landscape ? Math.min(width * 0.28, 420) : Math.min(width * 0.55, 260);
+  // NEXT SERVING = first upcoming
+  const nextNum = data.upcoming?.[0]?.queue_number;
+  const merchant = data.merchant || {};
+  const videoId = extractYouTubeId(merchant.tv_video_url || '');
+  const bgUrl = merchant.tv_photo_url || merchant.photo_url || '';
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#0F172A' }}>
-      {bgUrl ? (
-        <Image source={{ uri: bgUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" blurRadius={landscape ? 0 : 10} />
-      ) : (
-        <LinearGradient colors={[c.primaryDark, '#0F172A']} style={StyleSheet.absoluteFillObject} />
-      )}
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(15,23,42,0.55)' }]} />
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      {/* Subtle themed background gradient */}
+      <LinearGradient
+        colors={[c.soft, c.bg]}
+        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFillObject}
+      />
 
-      <View style={[styles.container, { flexDirection: landscape ? 'row' : 'column' }]}>
-        {/* Now serving */}
-        <View style={[styles.nowPanel, { flex: landscape ? 2 : undefined, padding: landscape ? 40 : 24 }]}>
-          <View style={[styles.nowCard, { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-              {data.merchant.logo_url ? (
-                <Image source={{ uri: data.merchant.logo_url }} style={{ width: 48, height: 48, borderRadius: 12 }} />
-              ) : null}
-              <Text style={[styles.merchantTitle, { fontFamily: iosFontFamily }]}>{data.merchant.name}</Text>
-            </View>
-            <Text style={[styles.nowLabel, { fontFamily: iosFontFamily, color: c.accent }]}>NOW SERVING</Text>
-            {nowNum ? (
-              <Text testID="now-serving-number" style={[styles.nowNumber, { fontSize: numSize, fontFamily: iosFontFamily }]}>#{nowNum}</Text>
+      <View style={[styles.root, { padding: landscape ? 32 : 20, flexDirection: landscape ? 'row' : 'column', gap: landscape ? 24 : 16 }]}>
+
+        {/* LEFT: Merchant info + NOW/NEXT cards */}
+        <View style={{ flex: landscape ? 1.05 : undefined, gap: 16 }}>
+          {/* Merchant header */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 4 }}>
+            {merchant.logo_url ? (
+              <Image source={{ uri: merchant.logo_url }} style={{ width: 64, height: 64, borderRadius: 18 }} />
             ) : (
-              <Text testID="now-serving-number" style={[styles.nowNumber, { fontSize: numSize * 0.5, color: 'rgba(255,255,255,0.4)', fontFamily: iosFontFamily }]}>—</Text>
+              <View style={{ width: 64, height: 64, borderRadius: 18, backgroundColor: c.soft, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontSize: 26, color: c.primaryDark, fontFamily: iosFontFamily }}>🏪</Text>
+              </View>
             )}
-            {data.now_serving && (
-              <Text style={[styles.nowCategory, { fontFamily: iosFontFamily }]}>{data.now_serving.category_name}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.merchantName, { color: c.text, fontFamily: iosFontFamily }]}>{merchant.name}</Text>
+              {!!merchant.address && <Text style={[styles.merchantAddr, { color: c.muted, fontFamily: iosFontFamily }]} numberOfLines={1}>{merchant.address}</Text>}
+            </View>
+          </View>
+
+          {/* NOW SERVING */}
+          <View style={[styles.numberCard, { backgroundColor: c.primary, borderColor: c.primaryDark }]}>
+            <Text style={[styles.numberLabel, { color: 'rgba(255,255,255,0.85)', fontFamily: iosFontFamily }]}>NOW SERVING</Text>
+            <Text
+              testID="now-serving-number"
+              style={[styles.bigNumber, { color: '#fff', fontSize: landscape ? 140 : 96, fontFamily: iosFontFamily }]}
+              numberOfLines={1}
+            >
+              {nowNum ? String(nowNum).padStart(3, '0') : '—'}
+            </Text>
+            {data.now_serving?.customer_name && (
+              <Text style={[styles.customerName, { color: 'rgba(255,255,255,0.9)', fontFamily: iosFontFamily }]} numberOfLines={1}>
+                {data.now_serving.customer_name}
+              </Text>
+            )}
+          </View>
+
+          {/* NEXT SERVING */}
+          <View style={[styles.numberCard, { backgroundColor: c.soft, borderColor: c.primary, borderWidth: 1.5 }]}>
+            <Text style={[styles.numberLabel, { color: c.primaryDark, fontFamily: iosFontFamily }]}>NEXT SERVING</Text>
+            <Text
+              testID="next-serving-number"
+              style={[styles.bigNumber, { color: c.primaryDark, fontSize: landscape ? 96 : 64, fontFamily: iosFontFamily }]}
+              numberOfLines={1}
+            >
+              {nextNum ? String(nextNum).padStart(3, '0') : '—'}
+            </Text>
+            {data.upcoming?.[0]?.customer_name && (
+              <Text style={[styles.customerName, { color: c.text, fontFamily: iosFontFamily }]} numberOfLines={1}>
+                {data.upcoming[0].customer_name}
+              </Text>
             )}
           </View>
         </View>
 
-        {/* Upcoming */}
-        <View style={[styles.sidePanel, { flex: landscape ? 1 : undefined, padding: landscape ? 32 : 20 }]}>
-          <Text style={[styles.sideTitle, { fontFamily: iosFontFamily }]}>Up next</Text>
-          <View testID="next-in-line-list" style={{ gap: 10 }}>
-            {data.upcoming.length === 0 && (
-              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 18, fontFamily: iosFontFamily }}>No one in queue</Text>
-            )}
-            {data.upcoming.slice(0, 6).map((e: any) => (
-              <View key={e.id} style={[styles.upItem, { backgroundColor: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.2)' }]}>
-                <Text style={[styles.upNum, { fontFamily: iosFontFamily }]}>#{e.queue_number}</Text>
-                <Text style={[styles.upCat, { fontFamily: iosFontFamily }]}>{e.category_name}</Text>
-              </View>
-            ))}
+        {/* RIGHT: Clock + Date + Media panel */}
+        <View style={{ flex: landscape ? 1.4 : undefined, gap: 16 }}>
+          {/* Clock + Date */}
+          <View style={[styles.clockCard, { backgroundColor: c.bg, borderColor: 'rgba(15,23,42,0.08)' }]}>
+            <Text style={[styles.clockTime, { color: c.text, fontFamily: iosFontFamily, fontSize: landscape ? 72 : 48 }]}>{formatTime(now)}</Text>
+            <Text style={[styles.clockDate, { color: c.muted, fontFamily: iosFontFamily }]}>{formatDate(now)}</Text>
           </View>
 
-          {data.recent_served?.length > 0 && (
-            <>
-              <Text style={[styles.sideTitle, { marginTop: 24, fontSize: 20, opacity: 0.6, fontFamily: iosFontFamily }]}>Recently served</Text>
-              <View style={{ gap: 6 }}>
-                {data.recent_served.map((e: any) => (
-                  <Text key={e.id} style={[styles.recent, { fontFamily: iosFontFamily }]}>#{e.queue_number} • {e.category_name}</Text>
-                ))}
-              </View>
-            </>
-          )}
+          {/* Media panel (YouTube video OR image) */}
+          <View style={[styles.mediaCard, { backgroundColor: '#000', borderColor: 'rgba(15,23,42,0.08)' }]}>
+            {videoId ? (
+              // Web-only iframe embed for YouTube (works in browser / Expo web).
+              // @ts-ignore - iframe only exists on web
+              Platform.OS === 'web' ? (
+                // eslint-disable-next-line react/no-unknown-property
+                // @ts-ignore
+                <iframe
+                  src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&controls=0&playlist=${videoId}`}
+                  style={{ width: '100%', height: '100%', border: 0, borderRadius: 20 }}
+                  allow="autoplay; encrypted-media"
+                  allowFullScreen
+                />
+              ) : bgUrl ? (
+                <Image source={{ uri: bgUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+              ) : (
+                <View style={[StyleSheet.absoluteFillObject, { alignItems: 'center', justifyContent: 'center' }]}>
+                  <Text style={{ color: '#fff', fontFamily: iosFontFamily }}>Video hanya tampil di Web/TV</Text>
+                </View>
+              )
+            ) : bgUrl ? (
+              <Image source={{ uri: bgUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+            ) : (
+              <LinearGradient colors={[c.primary, c.primaryDark]} style={StyleSheet.absoluteFillObject} />
+            )}
+          </View>
         </View>
+      </View>
+
+      {/* Footer: Powered by */}
+      <View style={styles.footer}>
+        <Text style={[styles.footerText, { color: c.muted, fontFamily: iosFontFamily }]}>
+          Powered by <Text style={{ color: c.primaryDark, fontWeight: '600' }}>{appName}</Text>
+        </Text>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F172A' },
-  nowPanel: { alignItems: 'center', justifyContent: 'center' },
-  nowCard: {
-    borderRadius: 40, padding: 40, alignItems: 'center', width: '100%',
-    borderWidth: 1,
+  root: { flex: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  merchantName: { fontSize: 26, fontWeight: '600', letterSpacing: -0.4 },
+  merchantAddr: { fontSize: 14, marginTop: 2 },
+  numberCard: {
+    borderRadius: 24, padding: 24, alignItems: 'center', borderWidth: 1,
+    shadowColor: '#000', shadowOpacity: 0.06, shadowOffset: { width: 0, height: 4 }, shadowRadius: 12, elevation: 3,
   },
-  merchantTitle: { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: -0.5 },
-  nowLabel: { fontSize: 16, fontWeight: '800', letterSpacing: 6, marginBottom: 10 },
-  nowNumber: { fontWeight: '900', color: '#fff', letterSpacing: -12, includeFontPadding: false, textAlign: 'center' },
-  nowCategory: { fontSize: 26, color: 'rgba(255,255,255,0.8)', fontWeight: '600', marginTop: 8 },
-  sidePanel: { justifyContent: 'flex-start' },
-  sideTitle: { fontSize: 26, fontWeight: '800', color: '#fff', marginBottom: 16, letterSpacing: -0.5 },
-  upItem: {
-    borderRadius: 20, paddingHorizontal: 20, paddingVertical: 16, borderWidth: 1,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  numberLabel: { fontSize: 12, fontWeight: '600', letterSpacing: 3 },
+  bigNumber: { fontWeight: '700', letterSpacing: -8, includeFontPadding: false, textAlign: 'center', marginTop: 4 },
+  customerName: { fontSize: 16, fontWeight: '500', marginTop: 4, maxWidth: '100%' },
+  clockCard: {
+    borderRadius: 24, padding: 24, alignItems: 'flex-end', borderWidth: 1,
+    shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 2 }, shadowRadius: 8, elevation: 2,
   },
-  upNum: { fontSize: 30, fontWeight: '900', color: '#fff', letterSpacing: -1 },
-  upCat: { fontSize: 17, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
-  recent: { fontSize: 15, color: 'rgba(255,255,255,0.5)' },
+  clockTime: { fontWeight: '600', letterSpacing: -2, includeFontPadding: false },
+  clockDate: { fontSize: 14, marginTop: 4 },
+  mediaCard: { flex: 1, borderRadius: 24, borderWidth: 1, overflow: 'hidden', minHeight: 240 },
+  footer: { position: 'absolute', bottom: 10, left: 0, right: 0, alignItems: 'center' },
+  footerText: { fontSize: 12 },
 });

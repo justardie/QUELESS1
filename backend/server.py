@@ -200,11 +200,12 @@ class MerchantIn(BaseModel):
     logo_url: Optional[str] = ""
     photo_url: Optional[str] = ""
     tv_photo_url: Optional[str] = ""
+    tv_video_url: Optional[str] = ""  # YouTube link for TV display
     hours_text: Optional[str] = ""
     hours_days: Optional[List[int]] = None  # 0=Mon..6=Sun
     hours_open: Optional[str] = ""  # "09:00"
     hours_close: Optional[str] = ""  # "21:00"
-    service_enabled: Optional[bool] = True
+    service_enabled: Optional[bool] = False  # default: services are optional (user can enable)
     is_open: Optional[bool] = True
 
 
@@ -263,11 +264,12 @@ def merchant_public(m: dict) -> dict:
         "description": m.get("description", ""), "address": m.get("address", ""),
         "logo_url": m.get("logo_url", ""), "photo_url": m.get("photo_url", ""),
         "tv_photo_url": m.get("tv_photo_url", ""),
+        "tv_video_url": m.get("tv_video_url", ""),
         "hours_text": m.get("hours_text", ""),
         "hours_days": m.get("hours_days", []),
         "hours_open": m.get("hours_open", ""),
         "hours_close": m.get("hours_close", ""),
-        "service_enabled": m.get("service_enabled", True),
+        "service_enabled": m.get("service_enabled", False),
         "is_open": m.get("is_open", True),
         "status": m.get("status", "pending"),
         "categories": m.get("categories", []),
@@ -462,16 +464,22 @@ async def update_settings(body: SettingsIn, user: dict = Depends(require_role("a
 # ---------------------------------------------------------------------------
 @api.post("/merchants")
 async def create_merchant(body: MerchantIn, user: dict = Depends(require_role("merchant", "admin"))):
+    # 1 user merchant = 1 toko (admin boleh banyak untuk manajemen)
+    if user["role"] == "merchant":
+        existing = await db.merchants.find_one({"owner_id": user["id"]})
+        if existing:
+            raise HTTPException(status_code=400, detail="Anda sudah memiliki 1 toko. 1 akun merchant hanya dapat mendaftarkan 1 toko.")
     m = {
         "id": str(uuid.uuid4()), "owner_id": user["id"],
         "name": body.name, "description": body.description or "",
         "address": body.address or "", "logo_url": body.logo_url or "",
         "photo_url": body.photo_url or "", "tv_photo_url": body.tv_photo_url or "",
+        "tv_video_url": body.tv_video_url or "",
         "hours_text": body.hours_text or "",
         "hours_days": body.hours_days or [],
         "hours_open": body.hours_open or "",
         "hours_close": body.hours_close or "",
-        "service_enabled": body.service_enabled if body.service_enabled is not None else True,
+        "service_enabled": body.service_enabled if body.service_enabled is not None else False,
         "is_open": body.is_open if body.is_open is not None else True,
         "status": "approved" if user["role"] == "admin" else "pending",
         "categories": [], "created_at": now_utc(),
@@ -695,21 +703,45 @@ async def _midtrans_status(server_key: str, is_production: bool, order_id: str) 
 
 
 async def _activate_subscription_for_payment(p: dict):
-    """Idempotent: create a subscription if this payment just became 'paid'."""
+    """Idempotent: create OR accumulate subscription when payment becomes 'paid'."""
     if p["status"] != "paid":
         return
     # guard against double-activation
-    existing = await db.subscriptions.find_one({"payment_id": p["id"]})
-    if existing:
+    existing_sub_link = await db.subscriptions.find_one({"payment_id": p["id"]})
+    if existing_sub_link:
         return
     pkg = await db.packages.find_one({"id": p["package_id"]})
     if not pkg:
         return
-    expires_at = now_utc() + timedelta(days=pkg["duration_days"])
+    # Accumulative quota (Option 2): if user has an active non-expired subscription,
+    # extend it by adding credits and appending the new duration on top of existing expires_at
+    existing_active = await db.subscriptions.find_one({
+        "user_id": p["user_id"],
+        "status": "active",
+        "expires_at": {"$gt": now_utc()},
+    })
+    if existing_active:
+        new_credits = int(existing_active.get("credits_remaining", 0)) + int(pkg["quota_count"])
+        current_expiry = existing_active["expires_at"]
+        new_expires = current_expiry + timedelta(days=int(pkg["duration_days"]))
+        await db.subscriptions.update_one(
+            {"id": existing_active["id"]},
+            {"$set": {
+                "credits_remaining": new_credits,
+                "expires_at": new_expires,
+                "package_id": pkg["id"],
+                "package_name": pkg["name"],
+                "last_topup_payment_id": p["id"],
+                "last_topup_at": now_utc(),
+            }},
+        )
+        return
+    # No active sub → create fresh
+    expires_at = now_utc() + timedelta(days=int(pkg["duration_days"]))
     sub = {
         "id": str(uuid.uuid4()), "user_id": p["user_id"],
         "package_id": pkg["id"], "package_name": pkg["name"],
-        "credits_remaining": pkg["quota_count"],
+        "credits_remaining": int(pkg["quota_count"]),
         "status": "active", "expires_at": expires_at, "created_at": now_utc(),
         "payment_id": p["id"],
     }
@@ -721,6 +753,16 @@ async def payments_create(body: PaymentCreateIn, user: dict = Depends(get_curren
     pkg = await db.packages.find_one({"id": body.package_id, "active": True}, {"_id": 0})
     if not pkg:
         raise HTTPException(status_code=404, detail="Package not found")
+
+    # Free package: only allowed once per user (first registration)
+    if int(pkg.get("price_idr", 0)) == 0:
+        prior_free = await db.payments.find_one({
+            "user_id": user["id"],
+            "amount_idr": 0,
+            "status": "paid",
+        })
+        if prior_free:
+            raise HTTPException(status_code=400, detail="Paket gratis hanya berlaku sekali pada pendaftaran awal. Silakan pilih paket berbayar.")
 
     s = await get_settings_doc()
     server_key = s.get("midtrans_server_key", "")
