@@ -64,7 +64,7 @@ export default function Home() {
         contentContainerStyle={{ padding: 16, paddingBottom: BOTTOM_DOCK_HEIGHT + 40 }}
         ListHeaderComponent={
           <View>
-            <Hx size={30} style={{ marginBottom: 4 }}>Antrian jadi mudah</Hx>
+            <Hx size={30} style={{ marginBottom: 4 }}>{(settings as any).app_headline || 'Antrian jadi mudah'}</Hx>
             <MutedText size={15} style={{ marginBottom: 20 }}>
               {settings.app_tagline || 'Pilih merchant, ambil nomor antrian, pantau posisi Anda secara real-time.'}
             </MutedText>

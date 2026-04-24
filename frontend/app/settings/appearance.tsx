@@ -34,6 +34,7 @@ export default function Appearance() {
   const { settings, refresh } = useTheme();
   const [logoUrl, setLogoUrl] = useState(settings.app_logo_url || '');
   const [appName, setAppName] = useState(settings.app_name || 'QUELESS');
+  const [appHeadline, setAppHeadline] = useState((settings as any).app_headline || 'Antrian jadi mudah');
   const [appTagline, setAppTagline] = useState(settings.app_tagline || '');
   const [selectedTheme, setSelectedTheme] = useState(settings.theme_key);
   const [busy, setBusy] = useState(false);
@@ -41,6 +42,7 @@ export default function Appearance() {
   useEffect(() => {
     setLogoUrl(settings.app_logo_url || '');
     setAppName(settings.app_name);
+    setAppHeadline((settings as any).app_headline || 'Antrian jadi mudah');
     setAppTagline(settings.app_tagline || '');
     setSelectedTheme(settings.theme_key);
   }, [settings]);
@@ -53,7 +55,7 @@ export default function Appearance() {
   async function save() {
     setBusy(true);
     try {
-      await api.updateSettings({ app_logo_url: logoUrl, theme_key: selectedTheme, app_name: appName, app_tagline: appTagline });
+      await api.updateSettings({ app_logo_url: logoUrl, theme_key: selectedTheme, app_name: appName, app_headline: appHeadline, app_tagline: appTagline });
       await refresh();
       notify('Pengaturan tampilan disimpan');
     } catch (e: any) {
@@ -102,7 +104,19 @@ export default function Appearance() {
           />
         </Card>
 
-        <Text style={[styles.label, { color: c.muted, fontFamily: iosFontFamily, marginTop: 16 }]}>TAGLINE (tampil di halaman utama)</Text>
+        <Text style={[styles.label, { color: c.muted, fontFamily: iosFontFamily, marginTop: 16 }]}>HEADLINE (judul besar di halaman utama)</Text>
+        <Card>
+          <TextInput
+            testID="app-headline-input"
+            value={appHeadline}
+            onChangeText={setAppHeadline}
+            style={[styles.input, { color: c.text, fontFamily: iosFontFamily }]}
+            placeholder="Antrian jadi mudah"
+            placeholderTextColor={c.muted}
+          />
+        </Card>
+
+        <Text style={[styles.label, { color: c.muted, fontFamily: iosFontFamily, marginTop: 16 }]}>TAGLINE (deskripsi di bawah headline)</Text>
         <Card>
           <TextInput
             testID="app-tagline-input"

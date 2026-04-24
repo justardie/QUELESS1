@@ -78,7 +78,8 @@ DEFAULT_SETTINGS = {
     "app_logo_url": "",
     "theme_key": "slate_emerald",
     "app_name": "QUELESS",
-    "app_tagline": "Antrian jadi mudah. Pilih merchant, ambil nomor antrean, pantau posisi kamu secara real-time.",
+    "app_headline": "Antrian jadi mudah",
+    "app_tagline": "Pilih merchant, ambil nomor antrian, pantau posisi Anda secara real-time.",
     "midtrans_server_key": "",
     "midtrans_client_key": "",
     "midtrans_is_production": False,
@@ -223,6 +224,7 @@ class SettingsIn(BaseModel):
     app_logo_url: Optional[str] = None
     theme_key: Optional[str] = None
     app_name: Optional[str] = None
+    app_headline: Optional[str] = None
     app_tagline: Optional[str] = None
     midtrans_server_key: Optional[str] = None
     midtrans_client_key: Optional[str] = None
@@ -422,6 +424,7 @@ async def get_public_settings():
     return {
         "app_logo_url": s.get("app_logo_url", ""),
         "app_name": s.get("app_name", "QUELESS"),
+        "app_headline": s.get("app_headline", DEFAULT_SETTINGS["app_headline"]),
         "app_tagline": s.get("app_tagline", DEFAULT_SETTINGS["app_tagline"]),
         "theme_key": theme["key"],
         "theme": theme,
@@ -441,6 +444,7 @@ async def admin_get_full_settings(user: dict = Depends(require_role("admin"))):
     return {
         "app_logo_url": s.get("app_logo_url", ""),
         "app_name": s.get("app_name", "QUELESS"),
+        "app_headline": s.get("app_headline", DEFAULT_SETTINGS["app_headline"]),
         "app_tagline": s.get("app_tagline", DEFAULT_SETTINGS["app_tagline"]),
         "theme_key": theme["key"],
         "theme": theme,
