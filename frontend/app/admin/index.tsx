@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator,
-  TouchableOpacity, Alert, RefreshControl, TextInput, Modal
+  TouchableOpacity, Alert, RefreshControl, TextInput, Modal, Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -11,6 +11,14 @@ import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../src/bottomDock';
 import { api } from '../../src/api';
 import { notify } from '../../src/alerts';
 import { useAuth } from '../../src/auth';
+
+// Konfirmasi yang bekerja di web DAN mobile
+function confirm(message: string): boolean {
+  if (Platform.OS === 'web') {
+    return window.confirm(message);
+  }
+  return true; // di mobile pakai Alert.alert di bawah
+}
 
 function ChangePasswordModal({ visible, onClose, onSubmit }: {
   visible: boolean; onClose: () => void; onSubmit: (pw: string) => void;
@@ -36,7 +44,7 @@ function ChangePasswordModal({ visible, onClose, onSubmit }: {
               style={[styles.modalBtn, { backgroundColor: theme.colors.brand }]}
               onPress={() => {
                 if (pw.length >= 6) { onSubmit(pw); setPw(''); }
-                else Alert.alert('Password minimal 6 karakter');
+                else alert('Password minimal 6 karakter');
               }}>
               <Text style={{ color: '#fff', fontWeight: '600' }}>Simpan</Text>
             </TouchableOpacity>
@@ -63,7 +71,7 @@ export default function Admin() {
         api.adminStats(), api.adminMerchants(), api.adminUsers()
       ]);
       setStats(s); setMerchants(m); setUsers(u);
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { alert('Error: ' + e.message); }
     finally { setLoading(false); }
   }, []);
 
@@ -71,48 +79,39 @@ export default function Admin() {
 
   async function setMerchantStatus(id: string, status: string) {
     try { await api.adminUpdateMerchantStatus(id, status); await load(); }
-    catch (e: any) { Alert.alert('Error', e.message); }
+    catch (e: any) { alert('Error: ' + e.message); }
   }
 
   async function handleSuspendUser(u: any) {
     const isSuspended = u.is_suspended;
-    Alert.alert(
-      isSuspended ? 'Aktifkan User' : 'Suspend User',
-      `${isSuspended ? 'Aktifkan' : 'Suspend'} akun ${u.name}?`,
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Ya',
-          style: isSuspended ? 'default' : 'destructive',
-          onPress: async () => {
-            try {
-              if (isSuspended) await api.adminUnsuspendUser(u.id);
-              else await api.adminSuspendUser(u.id);
-              await load();
-              notify(isSuspended ? 'User berhasil diaktifkan' : 'User berhasil disuspend');
-            } catch (e: any) { notify(e.message, 'Gagal'); }
-          }
-        }
-      ]
-    );
+    const msg = isSuspended
+      ? `Aktifkan akun ${u.name}?`
+      : `Suspend akun ${u.name}? User tidak bisa login selama disuspend.`;
+    if (!window.confirm(msg)) return;
+    try {
+      if (isSuspended) await api.adminUnsuspendUser(u.id);
+      else await api.adminSuspendUser(u.id);
+      await load();
+      notify(isSuspended ? 'User berhasil diaktifkan' : 'User berhasil disuspend');
+    } catch (e: any) { notify(e.message, 'Gagal'); }
   }
 
   async function handleDeleteUser(u: any) {
-    Alert.alert(
-      'Hapus User',
-      `Hapus akun ${u.name}? Tindakan ini TIDAK bisa dibatalkan.`,
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Hapus',
-          style: 'destructive',
-          onPress: async () => {
-            try { await api.adminDeleteUser(u.id); await load(); notify(`Akun ${u.name} dihapus`); }
-            catch (e: any) { notify(e.message, 'Gagal'); }
-          }
-        }
-      ]
-    );
+    if (!window.confirm(`Hapus akun ${u.name} (${u.email})? Tindakan ini TIDAK bisa dibatalkan.`)) return;
+    try {
+      await api.adminDeleteUser(u.id);
+      await load();
+      notify(`Akun ${u.name} dihapus`);
+    } catch (e: any) { notify(e.message, 'Gagal'); }
+  }
+
+  async function handleDeleteMerchant(m: any) {
+    if (!window.confirm(`Hapus merchant ${m.name}? Tindakan ini TIDAK bisa dibatalkan.`)) return;
+    try {
+      await api.adminDeleteMerchant(m.id);
+      await load();
+      notify(`Merchant ${m.name} dihapus`);
+    } catch (e: any) { notify(e.message, 'Gagal'); }
   }
 
   async function handleChangePassword(new_password: string) {
@@ -196,13 +195,7 @@ export default function Admin() {
                   <Button
                     label="Hapus"
                     variant="danger"
-                    onPress={() => Alert.alert('Hapus Merchant', `Hapus ${m.name}?`, [
-                      { text: 'Batal', style: 'cancel' },
-                      { text: 'Hapus', style: 'destructive', onPress: async () => {
-                        try { await api.adminDeleteMerchant(m.id); await load(); notify('Merchant dihapus'); }
-                        catch (e: any) { notify(e.message, 'Gagal'); }
-                      }}
-                    ])}
+                    onPress={() => handleDeleteMerchant(m)}
                     style={{ flex: 1, minWidth: 90 }}
                   />
                 </View>
