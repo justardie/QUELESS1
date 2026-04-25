@@ -1215,7 +1215,7 @@ async def admin_delete_user(
 
 
 @api.put("/admin/users/{user_id}/suspend")
-    async def suspend_user(user_id: str, user: dict = Depends(require_role("admin"))):
+async def suspend_user(user_id: str, user: dict = Depends(require_role("admin"))):
         result = await db.users.update_one(
             {"id": user_id},
             {"$set": {"is_suspended": True}}
@@ -1224,8 +1224,8 @@ async def admin_delete_user(
             raise HTTPException(404, "User tidak ditemukan")
         return {"message": "User berhasil disuspend"}
 
-    @api.put("/admin/users/{user_id}/unsuspend")
-    async def unsuspend_user(user_id: str, user: dict = Depends(require_role("admin"))):
+@api.put("/admin/users/{user_id}/unsuspend")
+async def unsuspend_user(user_id: str, user: dict = Depends(require_role("admin"))):
         result = await db.users.update_one(
             {"id": user_id},
             {"$set": {"is_suspended": False}}
@@ -1234,8 +1234,8 @@ async def admin_delete_user(
             raise HTTPException(404, "User tidak ditemukan")
         return {"message": "User berhasil diaktifkan"}
 
-    @api.put("/admin/users/{user_id}/password")
-    async def admin_change_user_password(user_id: str, body: dict, user: dict = Depends(require_role("admin"))):
+@api.put("/admin/users/{user_id}/password")
+async def admin_change_user_password(user_id: str, body: dict, user: dict = Depends(require_role("admin"))):
         new_password = body.get("new_password", "")
         if len(new_password) < 6:
             raise HTTPException(400, "Password minimal 6 karakter")
@@ -1248,8 +1248,8 @@ async def admin_delete_user(
             raise HTTPException(404, "User tidak ditemukan")
         return {"message": "Password berhasil diubah"}
 
-    @api.delete("/admin/users/{user_id}")
-    async def admin_delete_user(user_id: str, user: dict = Depends(require_role("admin"))):
+@api.delete("/admin/users/{user_id}")
+async def admin_delete_user(user_id: str, user: dict = Depends(require_role("admin"))):
         result = await db.users.delete_one({"id": user_id})
         if result.deleted_count == 0:
             raise HTTPException(404, "User tidak ditemukan")

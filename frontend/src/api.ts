@@ -87,22 +87,22 @@ export const api = {
   adminDeleteMerchant: (merchantId: string) => request(`/admin/merchants/${merchantId}`, { method: 'DELETE' }),
   // ---- Admin User Management (tambahan baru) ----
   adminSuspendUser: (id: string) =>
-    request(`/api/admin/users/${id}/suspend`, { method: 'PUT' }),
+    request(`/admin/users/${id}/suspend`, { method: 'PUT' }),
 
   adminUnsuspendUser: (id: string) =>
-    request(`/api/admin/users/${id}/unsuspend`, { method: 'PUT' }),
+    request(`/admin/users/${id}/unsuspend`, { method: 'PUT' }),
 
   adminChangeUserPassword: (id: string, new_password: string) =>
-    request(`/api/admin/users/${id}/password`, {
+    request(`/admin/users/${id}/password`, {
       method: 'PUT',
       body: JSON.stringify({ new_password }),
     }),
 
   adminDeleteUser: (id: string) =>
-    request(`/api/admin/users/${id}`, { method: 'DELETE' }),
+    request(`/admin/users/${id}`, { method: 'DELETE' }),
 
   adminChangeMerchantPassword: (id: string, new_password: string) =>
-    request(`/api/admin/users/${id}/password`, {
+    request(`/admin/users/${id}/password`, {
       method: 'PUT',
       body: JSON.stringify({ new_password }),
     }),
