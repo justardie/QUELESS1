@@ -18,7 +18,7 @@ from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr
 
-
+import asyncio
 # ---------------------------------------------------------------------------
 # Setup
 # ---------------------------------------------------------------------------
@@ -1165,7 +1165,95 @@ async def admin_users(user: dict = Depends(require_role("admin"))):
     cursor = db.users.find({}, {"_id": 0, "password_hash": 0}).limit(1000)
     return [user_public(u) async for u in cursor]
 
+@api.put("/admin/users/{user_id}/suspend")
+async def suspend_user(user_id: str, user: dict = Depends(require_role("admin"))):
+    result = await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"is_suspended": True}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(404, "User tidak ditemukan")
+    return {"message": "User berhasil disuspend"}
 
+
+@api.put("/admin/users/{user_id}/unsuspend")
+async def unsuspend_user(user_id: str, user: dict = Depends(require_role("admin"))):
+    result = await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"is_suspended": False}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(404, "User tidak ditemukan")
+    return {"message": "User berhasil diaktifkan"}
+
+
+@api.put("/admin/users/{user_id}/password")
+async def admin_change_user_password(
+    user_id: str, body: dict, user: dict = Depends(require_role("admin"))
+):
+    new_password = body.get("new_password", "")
+    if len(new_password) < 6:
+        raise HTTPException(400, "Password minimal 6 karakter")
+    hashed = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+    result = await db.users.update_one(
+        {"id": user_id},
+        {"$set": {"password_hash": hashed}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(404, "User tidak ditemukan")
+    return {"message": "Password berhasil diubah"}
+
+
+@api.delete("/admin/users/{user_id}")
+async def admin_delete_user(
+    user_id: str, user: dict = Depends(require_role("admin"))
+):
+    result = await db.users.delete_one({"id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(404, "User tidak ditemukan")
+    return {"message": "User berhasil dihapus"}
+
+
+@api.put("/admin/users/{user_id}/suspend")
+    async def suspend_user(user_id: str, user: dict = Depends(require_role("admin"))):
+        result = await db.users.update_one(
+            {"id": user_id},
+            {"$set": {"is_suspended": True}}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(404, "User tidak ditemukan")
+        return {"message": "User berhasil disuspend"}
+
+    @api.put("/admin/users/{user_id}/unsuspend")
+    async def unsuspend_user(user_id: str, user: dict = Depends(require_role("admin"))):
+        result = await db.users.update_one(
+            {"id": user_id},
+            {"$set": {"is_suspended": False}}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(404, "User tidak ditemukan")
+        return {"message": "User berhasil diaktifkan"}
+
+    @api.put("/admin/users/{user_id}/password")
+    async def admin_change_user_password(user_id: str, body: dict, user: dict = Depends(require_role("admin"))):
+        new_password = body.get("new_password", "")
+        if len(new_password) < 6:
+            raise HTTPException(400, "Password minimal 6 karakter")
+        hashed = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+        result = await db.users.update_one(
+            {"id": user_id},
+            {"$set": {"password_hash": hashed}}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(404, "User tidak ditemukan")
+        return {"message": "Password berhasil diubah"}
+
+    @api.delete("/admin/users/{user_id}")
+    async def admin_delete_user(user_id: str, user: dict = Depends(require_role("admin"))):
+        result = await db.users.delete_one({"id": user_id})
+        if result.deleted_count == 0:
+            raise HTTPException(404, "User tidak ditemukan")
+        return {"message": "User berhasil dihapus"} 
 @api.get("/admin/merchants")
 async def admin_merchants(user: dict = Depends(require_role("admin"))):
     cursor = db.merchants.find({}, {"_id": 0}).limit(500)
@@ -1397,8 +1485,36 @@ async def startup():
             d["created_at"] = now_utc()
             await db.packages.insert_one(d)
         logger.info("Seeded default subscription packages")
-
-
+        asyncio.create_task(expire_queues_task())
+async def expire_queues_task():
+    """Background task: expire antrian setiap 5 menit"""
+    while True:
+        try:
+            now = datetime.utcnow()
+            cutoff_24h = now - timedelta(hours=24)
+            # Expire antrian yang sudah 24 jam
+            await db.queue_entries.update_many(
+                {
+                    "status": {"$in": ["waiting", "called"]},
+                    "created_at": {"$lt": cutoff_24h}
+                },
+                {"$set": {"status": "expired", "expired_at": now}}
+            )
+            # Expire antrian dari merchant yang tutup
+            closed_merchants = await db.merchants.find(
+                {"is_open": False}
+            ).to_list(None)
+            for merchant in closed_merchants:
+                await db.queue_entries.update_many(
+                    {
+                        "merchant_id": merchant["id"],
+                        "status": {"$in": ["waiting", "called"]}
+                    },
+                    {"$set": {"status": "expired", "expired_at": now}}
+                )
+        except Exception as e:
+            logger.error(f"Error expire task: {e}")
+        await asyncio.sleep(300)  # cek setiap 5 menit
 @app.on_event("shutdown")
 async def shutdown():
     client.close()
