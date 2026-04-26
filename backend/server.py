@@ -1055,7 +1055,15 @@ async def join_queue(body: JoinQueueIn, user: Optional[dict] = Depends(optional_
         if has_packages:
             active_sub = await active_subscription(user["id"])
             if not active_sub:
-                raise HTTPException(status_code=402, detail="Active subscription required. Please purchase a package.")
+                # Give specific reason so user knows what to do
+                any_sub = await db.subscriptions.find_one(
+                    {"user_id": user["id"]}, sort=[("expires_at", -1)]
+                )
+                if any_sub and any_sub.get("credits_remaining", 0) <= 0:
+                    raise HTTPException(status_code=402, detail="Kuota antrian Anda habis. Silakan beli paket untuk melanjutkan.")
+                if any_sub and any_sub.get("expires_at") and any_sub["expires_at"] < now_utc():
+                    raise HTTPException(status_code=402, detail="Paket Anda sudah kadaluarsa. Silakan beli paket baru di menu Pengaturan.")
+                raise HTTPException(status_code=402, detail="Diperlukan paket aktif untuk mengambil antrian. Beli paket di menu Pengaturan → Beli Paket.")
 
     customer_name = (body.customer_name or (user["name"] if user else None) or "Guest").strip()
     number = await next_queue_number(body.merchant_id)

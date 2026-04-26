@@ -26,6 +26,7 @@ export default function MerchantDetail() {
   const [busy, setBusy] = useState(false);
   const [showNameModal, setShowNameModal] = useState(false);
   const [customerName, setCustomerName] = useState('');
+  const [subStatus, setSubStatus] = useState<{ credits: number; hasActive: boolean } | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -45,7 +46,19 @@ export default function MerchantDetail() {
     async function loadTv() {
       try { const t = await api.tv(id!); if (alive) setTv(t); } catch {}
     }
-    load(); loadTv();
+    async function loadSub() {
+      if (!user || user.role !== 'customer') return;
+      try {
+        const d: any = await api.mySubscriptions();
+        const active = d?.active;
+        const latest = d?.subscriptions?.[0];
+        setSubStatus({
+          hasActive: !!active,
+          credits: active?.credits_remaining ?? latest?.credits_remaining ?? 0,
+        });
+      } catch {}
+    }
+    load(); loadTv(); loadSub();
     const timer = setInterval(loadTv, 4000);
     return () => { alive = false; clearInterval(timer); };
   }, [id]);
@@ -171,6 +184,24 @@ export default function MerchantDetail() {
 
       {/* Tombol Join fixed di bawah */}
       <View style={[styles.footer, { backgroundColor: c.bg }]}>
+        {/* Subscription warning banner for customers */}
+        {user?.role === 'customer' && subStatus && !subStatus.hasActive && (
+          <TouchableOpacity onPress={() => router.push('/settings/packages')} style={[styles.subBanner, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>
+            <Ionicons name="warning-outline" size={16} color="#92400E" />
+            <Text style={{ flex: 1, fontSize: 12, color: '#92400E', fontWeight: '600', marginLeft: 6 }}>
+              {subStatus.credits === 0 ? 'Kuota antrian habis.' : 'Belum punya paket aktif.'} Tap untuk beli paket.
+            </Text>
+            <Ionicons name="chevron-forward" size={14} color="#92400E" />
+          </TouchableOpacity>
+        )}
+        {user?.role === 'customer' && subStatus?.hasActive && (
+          <View style={[styles.subBanner, { backgroundColor: '#DCFCE7', borderColor: '#10b981' }]}>
+            <Ionicons name="checkmark-circle" size={16} color="#065F46" />
+            <Text style={{ fontSize: 12, color: '#065F46', fontWeight: '600', marginLeft: 6 }}>
+              Sisa kuota: {subStatus.credits} antrian
+            </Text>
+          </View>
+        )}
         <Button
           testID="join-queue-button"
           label={busy ? 'Mengambil nomor…' : isOpen ? 'Ambil nomor antrian' : 'Merchant sedang tutup'}
@@ -244,6 +275,7 @@ const styles = StyleSheet.create({
   catCard: { flexDirection: 'row', alignItems: 'center' },
   radio: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   footer: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20, borderTopWidth: 1, borderTopColor: 'rgba(15,23,42,0.06)' },
+  subBanner: { flexDirection: 'row', alignItems: 'center', padding: 10, borderRadius: 10, borderWidth: 1, marginBottom: 10 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
   modalCard: { padding: 20, borderRadius: 20, elevation: 8 },
   modalInput: { marginTop: 12, height: 48, borderWidth: 1, borderColor: 'rgba(15,23,42,0.1)', borderRadius: 12, paddingHorizontal: 14, fontSize: 16 },
