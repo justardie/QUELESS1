@@ -28,6 +28,7 @@ export default function ProfileSettings() {
   const c = useColors();
   const { user, refresh } = useAuth();
   const [name, setName] = useState(user?.name || '');
+  const [username, setUsername] = useState((user as any)?.username || '');
   const [phone, setPhone] = useState(user?.phone || '');
   const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || '');
   const [busy, setBusy] = useState(false);
@@ -35,6 +36,7 @@ export default function ProfileSettings() {
   useEffect(() => {
     if (user) {
       setName(user.name || '');
+      setUsername((user as any).username || '');
       setPhone((user as any).phone || '');
       setAvatarUrl((user as any).avatar_url || '');
     }
@@ -49,7 +51,7 @@ export default function ProfileSettings() {
     if (!name.trim()) { Alert.alert('Nama diperlukan'); return; }
     setBusy(true);
     try {
-      await api.updateProfile({ name: name.trim(), phone: phone.trim(), avatar_url: avatarUrl });
+      await api.updateProfile({ name: name.trim(), username: username.trim(), phone: phone.trim(), avatar_url: avatarUrl });
       await refresh();
       notify('Profil berhasil disimpan');
     } catch (e: any) {
@@ -98,6 +100,19 @@ export default function ProfileSettings() {
               onChangeText={setName}
               placeholder="Nama lengkap"
               placeholderTextColor={c.muted}
+              style={[styles.input, { color: c.text, fontFamily: iosFontFamily }]}
+            />
+          </Card>
+
+          <Text style={[styles.label, { color: c.muted }]}>USERNAME</Text>
+          <Card style={{ marginBottom: 12 }}>
+            <TextInput
+              testID="profile-username"
+              value={username}
+              onChangeText={setUsername}
+              placeholder="johndoe"
+              placeholderTextColor={c.muted}
+              autoCapitalize="none"
               style={[styles.input, { color: c.text, fontFamily: iosFontFamily }]}
             />
           </Card>

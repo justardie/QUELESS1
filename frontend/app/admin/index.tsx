@@ -12,13 +12,6 @@ import { api } from '../../src/api';
 import { notify } from '../../src/alerts';
 import { useAuth } from '../../src/auth';
 
-// Konfirmasi yang bekerja di web DAN mobile
-function confirm(message: string): boolean {
-  if (Platform.OS === 'web') {
-    return window.confirm(message);
-  }
-  return true; // di mobile pakai Alert.alert di bawah
-}
 
 function ChangePasswordModal({ visible, onClose, onSubmit }: {
   visible: boolean; onClose: () => void; onSubmit: (pw: string) => void;
@@ -87,31 +80,63 @@ export default function Admin() {
     const msg = isSuspended
       ? `Aktifkan akun ${u.name}?`
       : `Suspend akun ${u.name}? User tidak bisa login selama disuspend.`;
-    if (!window.confirm(msg)) return;
-    try {
-      if (isSuspended) await api.adminUnsuspendUser(u.id);
-      else await api.adminSuspendUser(u.id);
-      await load();
-      notify(isSuspended ? 'User berhasil diaktifkan' : 'User berhasil disuspend');
-    } catch (e: any) { notify(e.message, 'Gagal'); }
+    Alert.alert(
+      isSuspended ? 'Aktifkan akun' : 'Suspend akun',
+      msg,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: isSuspended ? 'Aktifkan' : 'Suspend',
+          style: isSuspended ? 'default' : 'destructive',
+          onPress: async () => {
+            try {
+              if (isSuspended) await api.adminUnsuspendUser(u.id);
+              else await api.adminSuspendUser(u.id);
+              await load();
+              notify(isSuspended ? 'User berhasil diaktifkan' : 'User berhasil disuspend');
+            } catch (e: any) { notify(e.message, 'Gagal'); }
+          }
+        },
+      ]
+    );
   }
 
   async function handleDeleteUser(u: any) {
-    if (!window.confirm(`Hapus akun ${u.name} (${u.email})? Tindakan ini TIDAK bisa dibatalkan.`)) return;
-    try {
-      await api.adminDeleteUser(u.id);
-      await load();
-      notify(`Akun ${u.name} dihapus`);
-    } catch (e: any) { notify(e.message, 'Gagal'); }
+    Alert.alert(
+      'Hapus akun',
+      `Hapus akun ${u.name} (${u.email})? Tindakan ini TIDAK bisa dibatalkan.`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Hapus', style: 'destructive', onPress: async () => {
+            try {
+              await api.adminDeleteUser(u.id);
+              await load();
+              notify(`Akun ${u.name} dihapus`);
+            } catch (e: any) { notify(e.message, 'Gagal'); }
+          }
+        },
+      ]
+    );
   }
 
   async function handleDeleteMerchant(m: any) {
-    if (!window.confirm(`Hapus merchant ${m.name}? Tindakan ini TIDAK bisa dibatalkan.`)) return;
-    try {
-      await api.adminDeleteMerchant(m.id);
-      await load();
-      notify(`Merchant ${m.name} dihapus`);
-    } catch (e: any) { notify(e.message, 'Gagal'); }
+    Alert.alert(
+      'Hapus merchant',
+      `Hapus merchant ${m.name}? Tindakan ini TIDAK bisa dibatalkan.`,
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Hapus', style: 'destructive', onPress: async () => {
+            try {
+              await api.adminDeleteMerchant(m.id);
+              await load();
+              notify(`Merchant ${m.name} dihapus`);
+            } catch (e: any) { notify(e.message, 'Gagal'); }
+          }
+        },
+      ]
+    );
   }
 
   async function handleChangePassword(new_password: string) {
@@ -246,6 +271,39 @@ export default function Admin() {
           ))
         )}
         <View style={{ height: 24 }} />
+        <Button
+          label="Bersihkan data orphan"
+          variant="secondary"
+          onPress={async () => {
+            try {
+              await api.adminCleanupOrphans();
+              await load();
+              notify('Data orphan berhasil dibersihkan');
+            } catch (e: any) { notify(e.message, 'Gagal'); }
+          }}
+        />
+        <View style={{ height: 12 }} />
+        <Button
+          testID="factory-reset"
+          label="Reset semua data (kecuali admin)"
+          variant="danger"
+          onPress={() => Alert.alert(
+            'Reset Data',
+            'Ini akan menghapus SEMUA user, merchant, antrian, dan pembayaran. Akun admin dipertahankan. Tindakan ini TIDAK bisa dibatalkan!',
+            [
+              { text: 'Batal', style: 'cancel' },
+              {
+                text: 'Reset', style: 'destructive', onPress: async () => {
+                  try {
+                    await api.adminFactoryReset();
+                    await load();
+                    notify('Data berhasil direset');
+                  } catch (e: any) { notify(e.message, 'Gagal'); }
+                }
+              },
+            ]
+          )}
+        />
       </ScrollView>
       <BottomDock />
     </SafeAreaView>

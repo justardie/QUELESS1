@@ -74,8 +74,8 @@ export const api = {
   adminSubscriptions: () => request('/admin/subscriptions'),
   adminUpdateSubscription: (id: string, body: any) => request(`/admin/subscriptions/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   adminDeleteSubscription: (id: string) => request(`/admin/subscriptions/${id}`, { method: 'DELETE' }),
-  adminDeleteUser: (id: string) => request(`/admin/users/${id}`, { method: 'DELETE' }),
   adminCleanupOrphans: () => request('/admin/cleanup-orphans', { method: 'POST' }),
+  adminFactoryReset: () => request('/admin/factory-reset', { method: 'POST' }),
 
   // payments
   createPayment: (body: any) => request('/payments/create', { method: 'POST', body: JSON.stringify(body) }),
