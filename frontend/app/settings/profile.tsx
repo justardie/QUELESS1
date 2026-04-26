@@ -132,7 +132,7 @@ export default function ProfileSettings() {
 
           <Text style={[styles.label, { color: c.muted }]}>EMAIL</Text>
           <Card style={{ marginBottom: 24 }}>
-            <Text style={[styles.input, { color: c.muted, fontFamily: iosFontFamily }]}>{user?.email}</Text>
+            <Text selectable={false} style={[styles.input, { color: c.muted, fontFamily: iosFontFamily }]}>{user?.email}</Text>
             <MutedText size={11} style={{ marginTop: 4 }}>Email tidak bisa diubah</MutedText>
           </Card>
 

@@ -183,7 +183,7 @@ export default function MerchantDetail() {
       </ScrollView>
 
       {/* Tombol Join fixed di bawah */}
-      <View style={[styles.footer, { backgroundColor: c.bg }]}>
+      <View style={[styles.footer, { backgroundColor: c.bg, paddingBottom: BOTTOM_DOCK_HEIGHT + 16 }]}>
         {/* Subscription warning banner for customers */}
         {user?.role === 'customer' && subStatus && !subStatus.hasActive && (
           <TouchableOpacity onPress={() => router.push('/settings/packages')} style={[styles.subBanner, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>

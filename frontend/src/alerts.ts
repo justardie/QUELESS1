@@ -32,13 +32,19 @@ export function confirmAction(
 
 /**
  * Cross-platform simple notification (toast-like).
- * - Web: uses alert() (simple but works)
+ * - Web: DOM toast (non-blocking, no browser dialog suppression)
  * - Native: uses Alert.alert with OK
  */
 export function notify(message: string, title = 'Berhasil') {
   if (Platform.OS === 'web') {
-    // @ts-ignore
-    if (typeof window !== 'undefined' && typeof window.alert === 'function') window.alert(message ? `${title}\n\n${message}` : title);
+    if (typeof document !== 'undefined') {
+      const isError = title && title !== 'Berhasil';
+      const el = document.createElement('div');
+      el.style.cssText = `position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:${isError ? '#7F1D1D' : '#1e293b'};color:#fff;padding:12px 20px;border-radius:14px;font-size:14px;font-weight:600;z-index:99999;opacity:1;transition:opacity 0.4s;max-width:88vw;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.18);pointer-events:none;`;
+      el.textContent = message || title;
+      document.body.appendChild(el);
+      setTimeout(() => { el.style.opacity = '0'; setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 400); }, 2500);
+    }
     return;
   }
   Alert.alert(title, message, [{ text: 'OK' }]);
