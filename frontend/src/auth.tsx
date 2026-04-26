@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { api, setToken, getToken } from './api';
 
-export type User = { id: string; email: string; name: string; role: 'admin' | 'merchant' | 'customer' };
+export type User = { id: string; email: string; name: string; role: 'admin' | 'merchant' | 'customer'; phone?: string; avatar_url?: string };
 
 type AuthCtx = {
   user: User | null;

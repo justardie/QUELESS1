@@ -66,16 +66,11 @@ export default function MerchantDetail() {
   }
 
   async function doJoin(nameOverride?: string) {
-    const needCategory = m?.service_enabled !== false && (m?.categories?.length || 0) > 0;
-    if (needCategory && !selected) {
-      Alert.alert('Pilih layanan', 'Silakan pilih layanan terlebih dahulu');
-      return;
-    }
     setBusy(true);
     try {
       const entry: any = await api.joinQueue({
         merchant_id: id!,
-        category_id: needCategory ? selected : undefined,
+        category_id: undefined,
         customer_name: nameOverride,
       });
       setShowNameModal(false);
@@ -92,7 +87,7 @@ export default function MerchantDetail() {
   const heroUrl = m.photo_url || m.tv_photo_url || '';
   const nowNum = tv?.now_serving?.queue_number;
   const upcomingCount = tv?.upcoming?.length || 0;
-  const isOpen = m.is_open !== false;
+  const isOpen = m.is_currently_open !== false;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.bg }]} edges={['top']}>

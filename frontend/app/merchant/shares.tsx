@@ -130,9 +130,8 @@ export default function MerchantShares() {
               </View>
               <MutedText size={11} style={{ marginTop: 10, textAlign: 'center' }}>{qrUrl}</MutedText>
 
-              <View style={{ flexDirection: 'row', gap: 8, marginTop: 14, alignSelf: 'stretch' }}>
-                <Button testID="open-qr-page" label="Download QR" onPress={() => router.push(`/merchant-qr/${selected.id}`)} style={{ flex: 1 }} />
-                <Button testID="copy-qr-url" label="Salin link" variant="secondary" onPress={() => copy(qrUrl, 'Link QR')} style={{ flex: 1 }} />
+              <View style={{ marginTop: 14, alignSelf: 'stretch' }}>
+                <Button testID="open-qr-page" label="Download QR (.png)" onPress={() => router.push(`/merchant-qr/${selected.id}`)} />
               </View>
             </Card>
           </>

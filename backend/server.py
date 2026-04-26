@@ -281,6 +281,12 @@ class UpdateSubIn(BaseModel):
     package_id: Optional[str] = None  # admin can change plan
 
 
+class UserUpdateIn(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
 # ---------------------------------------------------------------------------
 # Serializers
 # ---------------------------------------------------------------------------
@@ -288,6 +294,8 @@ def user_public(u: dict) -> dict:
     return {
         "id": u["id"], "email": u["email"], "name": u["name"], "role": u["role"],
         "is_suspended": bool(u.get("is_suspended", False)),
+        "phone": u.get("phone", ""),
+        "avatar_url": u.get("avatar_url", ""),
         "created_at": iso(u.get("created_at")),
     }
 
@@ -395,6 +403,22 @@ async def login(body: LoginIn):
 @api.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
     return user_public(user)
+
+
+@api.put("/users/me")
+async def update_profile(body: UserUpdateIn, user: dict = Depends(get_current_user)):
+    update: dict = {}
+    if body.name is not None and body.name.strip():
+        update["name"] = body.name.strip()
+    if body.phone is not None:
+        update["phone"] = body.phone.strip()
+    if body.avatar_url is not None:
+        update["avatar_url"] = body.avatar_url
+    if not update:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    await db.users.update_one({"id": user["id"]}, {"$set": update})
+    u = await db.users.find_one({"id": user["id"]}, {"_id": 0, "password_hash": 0})
+    return user_public(u)
 
 
 # ---------------------------------------------------------------------------
@@ -544,7 +568,14 @@ async def create_merchant(body: MerchantIn, user: dict = Depends(require_role("m
 @api.get("/merchants")
 async def list_merchants():
     cursor = db.merchants.find({"status": "approved"}, {"_id": 0}).limit(200)
-    return [merchant_public(m) async for m in cursor]
+    out = []
+    async for m in cursor:
+        data = merchant_public(m)
+        data["active_queue_count"] = await db.queue_entries.count_documents(
+            {"merchant_id": m["id"], "status": {"$in": ["waiting", "called"]}}
+        )
+        out.append(data)
+    return out
 
 
 @api.get("/merchants/mine")
