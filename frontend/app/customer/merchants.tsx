@@ -90,8 +90,14 @@ export default function Merchants() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.mName}>{item.name}</Text>
                     {!!item.description && <Text style={styles.mDesc} numberOfLines={1}>{item.description}</Text>}
-                    <View style={{ flexDirection: 'row', marginTop: 6, gap: 6 }}>
-                      <Badge label={`${item.categories?.length || 0} categories`} />
+                    <View style={{ flexDirection: 'row', marginTop: 6, gap: 6, flexWrap: 'wrap' }}>
+                      <Badge
+                        label={item.is_currently_open ? 'Buka' : 'Tutup'}
+                        color={item.is_currently_open ? '#DCFCE7' : '#FEE2E2'}
+                        textColor={item.is_currently_open ? '#065F46' : '#7F1D1D'}
+                      />
+                      <Badge label={`${item.active_queue_count ?? 0} antrian aktif`} />
+                      {!!item.hours_text && <Badge label={item.hours_text} />}
                     </View>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />

@@ -35,6 +35,7 @@ export default function SettingsHub() {
   }
 
   const items: { label: string; sub: string; icon: any; to?: string; action?: () => void; show: boolean }[] = [
+    { label: 'Profil saya', sub: 'Nama, foto, nomor HP', icon: 'person-outline', to: '/settings/profile', show: true },
     { label: 'Beli paket', sub: 'Upgrade atau perpanjang langganan', icon: 'bag-handle-outline', to: '/settings/packages', show: user.role === 'customer' },
     { label: 'Profil merchant', sub: 'Logo, foto, alamat & jam operasional', icon: 'storefront-outline', to: '/settings/merchant', show: user.role === 'merchant' },
     { label: 'Tampilan TV & QR code', sub: 'Link display TV + QR scan pelanggan', icon: 'qr-code-outline', to: '/merchant/shares', show: user.role === 'merchant' },
@@ -62,7 +63,7 @@ export default function SettingsHub() {
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
                 <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#10b981' }} />
                 <MutedText size={12} style={{ color: '#065F46', fontWeight: '700' }}>
-                  {activeSub.package_name} · {activeSub.credits_remaining} kuota tersisa
+                  {activeSub.package_name} · {activeSub.credits_remaining} kuota · Berakhir {activeSub.expires_at ? new Date(activeSub.expires_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
                 </MutedText>
               </View>
             )}

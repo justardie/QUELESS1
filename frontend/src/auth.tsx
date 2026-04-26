@@ -2,13 +2,13 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { api, setToken, getToken } from './api';
 
-export type User = { id: string; email: string; name: string; role: 'admin' | 'merchant' | 'customer' };
+export type User = { id: string; email: string; name: string; role: 'admin' | 'merchant' | 'customer'; username?: string; phone?: string; avatar_url?: string };
 
 type AuthCtx = {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<User>;
-  signUp: (email: string, password: string, name: string, role: 'customer' | 'merchant') => Promise<User>;
+  signUp: (email: string, password: string, name: string, role: 'customer' | 'merchant', username?: string) => Promise<User>;
   signInWithGoogle: () => void;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -48,8 +48,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(res.user);
     return res.user;
   }
-  async function signUp(email: string, password: string, name: string, role: 'customer' | 'merchant') {
-    const res: any = await api.register({ email, password, name, role });
+  async function signUp(email: string, password: string, name: string, role: 'customer' | 'merchant', username?: string) {
+    const res: any = await api.register({ email, password, name, role, username });
     await setToken(res.token);
     setUser(res.user);
     return res.user;

@@ -31,15 +31,43 @@ export default function MerchantQR() {
       Alert.alert('Info', 'Download QR hanya tersedia di browser web.');
       return;
     }
-    if (!svgRef.current) return;
-    svgRef.current.toDataURL((dataUrl: string) => {
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    });
+    // Try DOM SVG approach first (more reliable on web)
+    const svgEl = (document as any).getElementById('qr-svg-wrap')?.querySelector('svg');
+    if (svgEl) {
+      const svgData = new XMLSerializer().serializeToString(svgEl);
+      const canvas = document.createElement('canvas');
+      const size = 512;
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d')!;
+      const img = new Image();
+      const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const blobUrl = URL.createObjectURL(blob);
+      img.onload = () => {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, size, size);
+        ctx.drawImage(img, 0, 0, size, size);
+        URL.revokeObjectURL(blobUrl);
+        const link = document.createElement('a');
+        link.href = canvas.toDataURL('image/png');
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+      img.src = blobUrl;
+      return;
+    }
+    // Fallback: use lib ref
+    if (svgRef.current?.toDataURL) {
+      svgRef.current.toDataURL((dataUrl: string) => {
+        if (!dataUrl) { Alert.alert('Error', 'Gagal mengambil gambar QR'); return; }
+        const link = document.createElement('a');
+        link.href = dataUrl; link.download = filename;
+        document.body.appendChild(link); link.click(); document.body.removeChild(link);
+      });
+    } else {
+      Alert.alert('Error', 'Download tidak didukung di browser ini');
+    }
   }
 
   return (
@@ -57,7 +85,7 @@ export default function MerchantQR() {
           <MutedText size={13} style={{ marginTop: 4, textAlign: 'center' }}>
             Cetak atau pasang QR ini di tempat Anda. Customer scan untuk langsung masuk halaman merchant.
           </MutedText>
-          <View style={{ padding: 16, backgroundColor: '#fff', borderRadius: 20, marginTop: 20, borderWidth: 1, borderColor: 'rgba(15,23,42,0.08)' }}>
+          <View nativeID="qr-svg-wrap" style={{ padding: 16, backgroundColor: '#fff', borderRadius: 20, marginTop: 20, borderWidth: 1, borderColor: 'rgba(15,23,42,0.08)' }}>
             <QRCode
               value={url}
               size={240}

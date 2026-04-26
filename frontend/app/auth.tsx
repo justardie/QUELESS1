@@ -20,6 +20,7 @@ export default function Auth() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { if (!loading && user) routeByRole(user.role); }, [loading, user]);
@@ -39,7 +40,7 @@ export default function Auth() {
     try {
       const u = mode === 'login'
         ? await signIn(email.trim(), password)
-        : await signUp(email.trim(), password, name.trim(), 'customer');
+        : await signUp(email.trim(), password, name.trim(), 'customer', username.trim());
       routeByRole(u.role);
     } catch (e: any) {
       Alert.alert('Gagal', e.message || 'Terjadi kesalahan');
@@ -95,11 +96,23 @@ export default function Auth() {
               </>
             )}
 
-            <Text style={[styles.label, { color: c.muted, fontFamily: iosFontFamily }]}>Email</Text>
+            {mode === 'register' && (
+              <>
+                <Text style={[styles.label, { color: c.muted, fontFamily: iosFontFamily }]}>Username</Text>
+                <TextInput
+                  testID="register-username-input" value={username} onChangeText={setUsername}
+                  placeholder="johndoe" placeholderTextColor={c.muted}
+                  autoCapitalize="none"
+                  style={[styles.input, { color: c.text, fontFamily: iosFontFamily }]}
+                />
+              </>
+            )}
+
+            <Text style={[styles.label, { color: c.muted, fontFamily: iosFontFamily }]}>{mode === 'login' ? 'Email atau username' : 'Email'}</Text>
             <TextInput
               testID="login-email-input" value={email} onChangeText={setEmail}
               placeholder="you@example.com" placeholderTextColor={c.muted}
-              autoCapitalize="none" keyboardType="email-address"
+              autoCapitalize="none"
               style={[styles.input, { color: c.text, fontFamily: iosFontFamily }]}
             />
 

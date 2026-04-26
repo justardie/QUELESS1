@@ -202,11 +202,12 @@ class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6)
     name: str
+    username: Optional[str] = None
     role: Role = "customer"
 
 
 class LoginIn(BaseModel):
-    email: EmailStr
+    email: str  # accepts email OR username
     password: str
 
 
@@ -281,13 +282,23 @@ class UpdateSubIn(BaseModel):
     package_id: Optional[str] = None  # admin can change plan
 
 
+class UserUpdateIn(BaseModel):
+    name: Optional[str] = None
+    username: Optional[str] = None
+    phone: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
 # ---------------------------------------------------------------------------
 # Serializers
 # ---------------------------------------------------------------------------
 def user_public(u: dict) -> dict:
     return {
         "id": u["id"], "email": u["email"], "name": u["name"], "role": u["role"],
+        "username": u.get("username", ""),
         "is_suspended": bool(u.get("is_suspended", False)),
+        "phone": u.get("phone", ""),
+        "avatar_url": u.get("avatar_url", ""),
         "created_at": iso(u.get("created_at")),
     }
 
@@ -367,27 +378,39 @@ def payment_public(p: dict) -> dict:
 async def register(body: RegisterIn):
     email = body.email.lower().strip()
     if await db.users.find_one({"email": email}):
-        raise HTTPException(status_code=400, detail="Email already registered")
-    # Public registration only allowed for role 'customer' (merchant accounts are created by admin)
+        raise HTTPException(status_code=400, detail="Email sudah terdaftar")
     if body.role != "customer":
         raise HTTPException(status_code=400, detail="Pendaftaran publik hanya untuk Member. Merchant dibuat oleh admin.")
+    # Generate unique username
+    base_uname = (body.username or "").strip().lower() or email.split("@")[0]
+    base_uname = re.sub(r'[^a-z0-9_]', '', base_uname) or "user"
+    username = base_uname
+    suffix = 1
+    while await db.users.find_one({"username": username}):
+        username = f"{base_uname}{suffix}"
+        suffix += 1
     user = {
         "id": str(uuid.uuid4()), "email": email,
         "password_hash": hash_password(body.password), "name": body.name,
+        "username": username,
         "role": "customer", "created_at": now_utc(),
     }
     await db.users.insert_one(user)
-    # Auto-grant free package sekali saja (jika ada paket gratis default)
     token = create_token(user["id"], user["email"], user["role"])
     return {"token": token, "user": user_public(user)}
 
 
 @api.post("/auth/login", response_model=AuthOut)
 async def login(body: LoginIn):
-    email = body.email.lower().strip()
-    user = await db.users.find_one({"email": email})
+    identifier = body.email.strip()
+    if "@" in identifier:
+        user = await db.users.find_one({"email": identifier.lower()})
+    else:
+        user = await db.users.find_one({"username": identifier.lower()})
     if not user or not verify_password(body.password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+        raise HTTPException(status_code=401, detail="Email/username atau password salah")
+    if user.get("is_suspended"):
+        raise HTTPException(status_code=403, detail="Akun Anda telah disuspend. Hubungi admin.")
     token = create_token(user["id"], user["email"], user["role"])
     return {"token": token, "user": user_public(user)}
 
@@ -395,6 +418,29 @@ async def login(body: LoginIn):
 @api.get("/auth/me")
 async def me(user: dict = Depends(get_current_user)):
     return user_public(user)
+
+
+@api.put("/users/me")
+async def update_profile(body: UserUpdateIn, user: dict = Depends(get_current_user)):
+    update: dict = {}
+    if body.name is not None and body.name.strip():
+        update["name"] = body.name.strip()
+    if body.username is not None:
+        new_uname = re.sub(r'[^a-z0-9_]', '', body.username.strip().lower())
+        if new_uname:
+            existing = await db.users.find_one({"username": new_uname, "id": {"$ne": user["id"]}})
+            if existing:
+                raise HTTPException(status_code=400, detail="Username sudah digunakan")
+            update["username"] = new_uname
+    if body.phone is not None:
+        update["phone"] = body.phone.strip()
+    if body.avatar_url is not None:
+        update["avatar_url"] = body.avatar_url
+    if not update:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    await db.users.update_one({"id": user["id"]}, {"$set": update})
+    u = await db.users.find_one({"id": user["id"]}, {"_id": 0, "password_hash": 0})
+    return user_public(u)
 
 
 # ---------------------------------------------------------------------------
@@ -544,7 +590,14 @@ async def create_merchant(body: MerchantIn, user: dict = Depends(require_role("m
 @api.get("/merchants")
 async def list_merchants():
     cursor = db.merchants.find({"status": "approved"}, {"_id": 0}).limit(200)
-    return [merchant_public(m) async for m in cursor]
+    out = []
+    async for m in cursor:
+        data = merchant_public(m)
+        data["active_queue_count"] = await db.queue_entries.count_documents(
+            {"merchant_id": m["id"], "status": {"$in": ["waiting", "called"]}}
+        )
+        out.append(data)
+    return out
 
 
 @api.get("/merchants/mine")
@@ -1024,7 +1077,15 @@ async def join_queue(body: JoinQueueIn, user: Optional[dict] = Depends(optional_
         if has_packages:
             active_sub = await active_subscription(user["id"])
             if not active_sub:
-                raise HTTPException(status_code=402, detail="Active subscription required. Please purchase a package.")
+                # Give specific reason so user knows what to do
+                any_sub = await db.subscriptions.find_one(
+                    {"user_id": user["id"]}, sort=[("expires_at", -1)]
+                )
+                if any_sub and any_sub.get("credits_remaining", 0) <= 0:
+                    raise HTTPException(status_code=402, detail="Kuota antrian Anda habis. Silakan beli paket untuk melanjutkan.")
+                if any_sub and any_sub.get("expires_at") and any_sub["expires_at"] < now_utc():
+                    raise HTTPException(status_code=402, detail="Paket Anda sudah kadaluarsa. Silakan beli paket baru di menu Pengaturan.")
+                raise HTTPException(status_code=402, detail="Diperlukan paket aktif untuk mengambil antrian. Beli paket di menu Pengaturan → Beli Paket.")
 
     customer_name = (body.customer_name or (user["name"] if user else None) or "Guest").strip()
     number = await next_queue_number(body.merchant_id)
@@ -1279,46 +1340,6 @@ async def admin_delete_user(
     return {"message": "User berhasil dihapus"}
 
 
-@api.put("/admin/users/{user_id}/suspend")
-async def suspend_user(user_id: str, user: dict = Depends(require_role("admin"))):
-        result = await db.users.update_one(
-            {"id": user_id},
-            {"$set": {"is_suspended": True}}
-        )
-        if result.matched_count == 0:
-            raise HTTPException(404, "User tidak ditemukan")
-        return {"message": "User berhasil disuspend"}
-
-@api.put("/admin/users/{user_id}/unsuspend")
-async def unsuspend_user(user_id: str, user: dict = Depends(require_role("admin"))):
-        result = await db.users.update_one(
-            {"id": user_id},
-            {"$set": {"is_suspended": False}}
-        )
-        if result.matched_count == 0:
-            raise HTTPException(404, "User tidak ditemukan")
-        return {"message": "User berhasil diaktifkan"}
-
-@api.put("/admin/users/{user_id}/password")
-async def admin_change_user_password(user_id: str, body: dict, user: dict = Depends(require_role("admin"))):
-        new_password = body.get("new_password", "")
-        if len(new_password) < 6:
-            raise HTTPException(400, "Password minimal 6 karakter")
-        hashed = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
-        result = await db.users.update_one(
-            {"id": user_id},
-            {"$set": {"password_hash": hashed}}
-        )
-        if result.matched_count == 0:
-            raise HTTPException(404, "User tidak ditemukan")
-        return {"message": "Password berhasil diubah"}
-
-@api.delete("/admin/users/{user_id}")
-async def admin_delete_user(user_id: str, user: dict = Depends(require_role("admin"))):
-        result = await db.users.delete_one({"id": user_id})
-        if result.deleted_count == 0:
-            raise HTTPException(404, "User tidak ditemukan")
-        return {"message": "User berhasil dihapus"} 
 @api.get("/admin/merchants")
 async def admin_merchants(user: dict = Depends(require_role("admin"))):
     cursor = db.merchants.find({}, {"_id": 0}).limit(500)
@@ -1494,6 +1515,18 @@ async def admin_cleanup_orphans(admin: dict = Depends(require_role("admin"))):
     }
 
 
+@api.post("/admin/factory-reset")
+async def factory_reset(admin: dict = Depends(require_role("admin"))):
+    """Delete all non-admin users and all related data, preserving admin accounts."""
+    await db.users.delete_many({"role": {"$ne": "admin"}})
+    await db.merchants.delete_many({})
+    await db.queue_entries.delete_many({})
+    await db.queue_counters.delete_many({})
+    await db.subscriptions.delete_many({})
+    await db.payments.delete_many({})
+    return {"ok": True, "message": "Data berhasil direset. Akun admin dipertahankan."}
+
+
 # ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
@@ -1526,6 +1559,10 @@ async def startup():
     await db.payments.create_index("id", unique=True)
     await db.payments.create_index("order_id", unique=True)
     await db.app_settings.create_index("key", unique=True)
+    try:
+        await db.users.create_index("username", unique=True, sparse=True)
+    except Exception:
+        pass
 
     # Seed admin
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@queue.app").lower()
