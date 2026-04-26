@@ -130,15 +130,17 @@ def is_within_operating_hours(hours_schedule: list) -> bool:
     """Return True if current local time falls within any scheduled day/hours."""
     if not hours_schedule:
         return True  # No schedule set → always open
-    now = datetime.now()
+    now = datetime.now(tz=timezone(timedelta(hours=7)))  # WIB (UTC+7)
     today = now.weekday()  # 0=Mon, 6=Sun
     current_hm = now.strftime("%H:%M")
-    for entry in hours_schedule:
-        if entry.get("day") == today:
-            op = entry.get("open", "00:00")
-            cl = entry.get("close", "23:59")
-            if op <= current_hm <= cl:
-                return True
+    today_entries = [e for e in hours_schedule if e.get("day") == today]
+    if not today_entries:
+        return True  # Today not in schedule → treat as open
+    for entry in today_entries:
+        op = entry.get("open", "00:00")
+        cl = entry.get("close", "23:59")
+        if op <= current_hm <= cl:
+            return True
     return False
 
 
@@ -1328,16 +1330,6 @@ async def admin_change_user_password(
     if result.matched_count == 0:
         raise HTTPException(404, "User tidak ditemukan")
     return {"message": "Password berhasil diubah"}
-
-
-@api.delete("/admin/users/{user_id}")
-async def admin_delete_user(
-    user_id: str, user: dict = Depends(require_role("admin"))
-):
-    result = await db.users.delete_one({"id": user_id})
-    if result.deleted_count == 0:
-        raise HTTPException(404, "User tidak ditemukan")
-    return {"message": "User berhasil dihapus"}
 
 
 @api.get("/admin/merchants")

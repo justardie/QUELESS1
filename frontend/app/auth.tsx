@@ -19,9 +19,11 @@ export default function Auth() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [busy, setBusy] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => { if (!loading && user) routeByRole(user.role); }, [loading, user]);
 
@@ -32,8 +34,9 @@ export default function Auth() {
   }
 
   async function onSubmit() {
+    setErrorMsg('');
     if (!email || !password || (mode === 'register' && !name)) {
-      Alert.alert('Data tidak lengkap', 'Mohon isi semua kolom wajib');
+      setErrorMsg('Mohon isi semua kolom wajib');
       return;
     }
     setBusy(true);
@@ -43,7 +46,7 @@ export default function Auth() {
         : await signUp(email.trim(), password, name.trim(), 'customer', username.trim());
       routeByRole(u.role);
     } catch (e: any) {
-      Alert.alert('Gagal', e.message || 'Terjadi kesalahan');
+      setErrorMsg(e.message || 'Terjadi kesalahan');
     } finally { setBusy(false); }
   }
 
@@ -117,11 +120,25 @@ export default function Auth() {
             />
 
             <Text style={[styles.label, { color: c.muted, fontFamily: iosFontFamily }]}>Password</Text>
-            <TextInput
-              testID="login-password-input" value={password} onChangeText={setPassword}
-              placeholder="••••••••" placeholderTextColor={c.muted} secureTextEntry
-              style={[styles.input, { color: c.text, fontFamily: iosFontFamily }]}
-            />
+            <View style={{ position: 'relative' }}>
+              <TextInput
+                testID="login-password-input" value={password} onChangeText={setPassword}
+                placeholder="••••••••" placeholderTextColor={c.muted} secureTextEntry={!showPassword}
+                style={[styles.input, { color: c.text, fontFamily: iosFontFamily, paddingRight: 48 }]}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(v => !v)}
+                style={{ position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center' }}
+              >
+                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={c.muted} />
+              </TouchableOpacity>
+            </View>
+
+            {!!errorMsg && (
+              <View style={{ backgroundColor: '#FEE2E2', borderRadius: 10, padding: 10, marginTop: 10 }}>
+                <Text style={{ color: '#B91C1C', fontSize: 13, fontFamily: iosFontFamily }}>{errorMsg}</Text>
+              </View>
+            )}
 
             <View style={{ height: 14 }} />
             <Button

@@ -3,7 +3,6 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
 import { useColors, iosFontFamily } from '../../src/themeContext';
 import { Card, Hx, MutedText, BodyText, Button } from '../../src/ui';
@@ -59,7 +58,7 @@ export default function MerchantShares() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }} edges={['top']}>
         <View style={{ padding: 20 }}>
-          <Header title="Tampilan TV & QR code" onBack={() => router.back()} />
+          <Header title="Tampilan TV" onBack={() => router.back()} />
           <Card>
             <BodyText>Anda belum punya merchant.</BodyText>
             <MutedText size={13} style={{ marginTop: 6 }}>Buat merchant dulu untuk mendapatkan link TV dan QR code.</MutedText>
@@ -75,7 +74,7 @@ export default function MerchantShares() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }} edges={['top']}>
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: BOTTOM_DOCK_HEIGHT + 40 }}>
-        <Header title="Tampilan TV & QR code" onBack={() => router.back()} />
+        <Header title="Tampilan TV" onBack={() => router.back()} />
 
         {merchants.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
@@ -113,27 +112,6 @@ export default function MerchantShares() {
               </View>
             </Card>
 
-            {/* QR Code card */}
-            <Card style={{ alignItems: 'center' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, alignSelf: 'stretch' }}>
-                <View style={{ width: 40, height: 40, borderRadius: 12, backgroundColor: c.soft, alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="qr-code-outline" size={20} color={c.primaryDark} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <BodyText weight="700">QR Code pelanggan</BodyText>
-                  <MutedText size={12}>Cetak & pasang di tempat Anda</MutedText>
-                </View>
-              </View>
-
-              <View style={{ padding: 16, backgroundColor: '#fff', borderRadius: 20, marginTop: 16, borderWidth: 1, borderColor: 'rgba(15,23,42,0.08)' }}>
-                <QRCode value={qrUrl} size={220} color={c.text} />
-              </View>
-              <MutedText size={11} style={{ marginTop: 10, textAlign: 'center' }}>{qrUrl}</MutedText>
-
-              <View style={{ marginTop: 14, alignSelf: 'stretch' }}>
-                <Button testID="open-qr-page" label="Download QR (.png)" onPress={() => router.push(`/merchant-qr/${selected.id}`)} />
-              </View>
-            </Card>
           </>
         )}
       </ScrollView>

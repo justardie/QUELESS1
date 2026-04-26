@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, useWindowDimensions, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, useWindowDimensions, Image, Platform, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import { useColors, iosFontFamily } from '../../src/themeContext';
 import { api } from '../../src/api';
 
@@ -25,6 +26,7 @@ export default function TVDisplay() {
   const [data, setData] = useState<any | null>(null);
   const [appName, setAppName] = useState<string>('QUELESS');
   const [now, setNow] = useState<Date>(new Date());
+  const [muted, setMuted] = useState(true);
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
 
@@ -100,7 +102,7 @@ export default function TVDisplay() {
         <View style={{ flex: 1, flexDirection: landscape ? 'row' : 'column', gap: gap, marginTop: gap }}>
           {/* LEFT column: NOW SERVING + NEXT SERVING cards stacked */}
           <View style={{ flex: landscape ? 0.32 : undefined, gap: gap }}>
-            <View style={[styles.numberCard, { borderColor: c.text, backgroundColor: c.bg }]}>
+            <View style={[styles.numberCard, { backgroundColor: c.soft }]}>
               <Text style={[styles.numberLabel, { color: c.text, fontFamily: iosFontFamily, fontSize: landscape ? Math.min(width, height) * 0.032 : 14 }]}>NOW SERVING</Text>
               <View style={[styles.divider, { backgroundColor: c.text }]} />
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -117,7 +119,7 @@ export default function TVDisplay() {
               </View>
             </View>
 
-            <View style={[styles.numberCard, { borderColor: c.text, backgroundColor: c.bg }]}>
+            <View style={[styles.numberCard, { backgroundColor: c.soft }]}>
               <Text style={[styles.numberLabel, { color: c.text, fontFamily: iosFontFamily, fontSize: landscape ? Math.min(width, height) * 0.032 : 14 }]}>NEXT SERVING</Text>
               <View style={[styles.divider, { backgroundColor: c.text }]} />
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
@@ -137,15 +139,24 @@ export default function TVDisplay() {
 
           {/* RIGHT column: big media 16:9 */}
           <View style={{ flex: landscape ? 0.68 : undefined, justifyContent: 'center' }}>
-            <View style={[styles.mediaCard, { borderColor: c.text, aspectRatio: 16 / 9 }]}>
+            <View style={[styles.mediaCard, { aspectRatio: 16 / 9 }]}>
               {videoId && Platform.OS === 'web' ? (
-                // @ts-ignore
-                <iframe
-                  src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&controls=0&playlist=${videoId}&modestbranding=1&rel=0`}
-                  style={{ width: '100%', height: '100%', border: 0, borderRadius: 16 }}
-                  allow="autoplay; encrypted-media"
-                  allowFullScreen
-                />
+                <>
+                  {/* @ts-ignore */}
+                  <iframe
+                    key={muted ? 'muted' : 'unmuted'}
+                    src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=${muted ? 1 : 0}&loop=1&controls=0&playlist=${videoId}&modestbranding=1&rel=0`}
+                    style={{ width: '100%', height: '100%', border: 0, borderRadius: 16 }}
+                    allow="autoplay; encrypted-media"
+                    allowFullScreen
+                  />
+                  <TouchableOpacity
+                    onPress={() => setMuted(v => !v)}
+                    style={{ position: 'absolute', bottom: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 20, padding: 8 }}
+                  >
+                    <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={22} color="#fff" />
+                  </TouchableOpacity>
+                </>
               ) : bgUrl ? (
                 <Image source={{ uri: bgUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
               ) : (
@@ -183,7 +194,6 @@ const styles = StyleSheet.create({
   numberCard: {
     flex: 1,
     borderRadius: 16,
-    borderWidth: 2,
     padding: 14,
   },
   numberLabel: { fontWeight: '600', letterSpacing: 0.5 },
@@ -192,7 +202,6 @@ const styles = StyleSheet.create({
   mediaCard: {
     width: '100%',
     borderRadius: 16,
-    borderWidth: 2,
     overflow: 'hidden',
     backgroundColor: '#fff',
   },

@@ -38,7 +38,7 @@ export default function SettingsHub() {
     { label: 'Profil saya', sub: 'Nama, foto, nomor HP', icon: 'person-outline', to: '/settings/profile', show: true },
     { label: 'Beli paket', sub: 'Upgrade atau perpanjang langganan', icon: 'bag-handle-outline', to: '/settings/packages', show: user.role === 'customer' },
     { label: 'Profil merchant', sub: 'Logo, foto, alamat & jam operasional', icon: 'storefront-outline', to: '/settings/merchant', show: user.role === 'merchant' },
-    { label: 'Tampilan TV & QR code', sub: 'Link display TV + QR scan pelanggan', icon: 'qr-code-outline', to: '/merchant/shares', show: user.role === 'merchant' },
+    { label: 'Tampilan TV', sub: 'Link display TV untuk layar besar', icon: 'tv-outline', to: '/merchant/shares', show: user.role === 'merchant' },
     { label: 'Tampilan aplikasi', sub: 'Logo, nama, tagline & warna tema', icon: 'color-palette-outline', to: '/settings/appearance', show: user.role === 'admin' },
     { label: 'Pembayaran (Midtrans QRIS)', sub: 'Server & client key, mode sandbox/production', icon: 'card-outline', to: '/settings/payments', show: user.role === 'admin' },
     { label: 'Paket langganan', sub: 'Kelola paket customer', icon: 'pricetags-outline', to: '/settings/packages-admin', show: user.role === 'admin' },

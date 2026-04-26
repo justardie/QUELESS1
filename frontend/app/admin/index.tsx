@@ -37,7 +37,7 @@ function ChangePasswordModal({ visible, onClose, onSubmit }: {
               style={[styles.modalBtn, { backgroundColor: theme.colors.brand }]}
               onPress={() => {
                 if (pw.length >= 6) { onSubmit(pw); setPw(''); }
-                else alert('Password minimal 6 karakter');
+                else Alert.alert('Password minimal 6 karakter');
               }}>
               <Text style={{ color: '#fff', fontWeight: '600' }}>Simpan</Text>
             </TouchableOpacity>
@@ -64,7 +64,7 @@ export default function Admin() {
         api.adminStats(), api.adminMerchants(), api.adminUsers()
       ]);
       setStats(s); setMerchants(m); setUsers(u);
-    } catch (e: any) { alert('Error: ' + e.message); }
+    } catch (e: any) { Alert.alert('Error', e.message); }
     finally { setLoading(false); }
   }, []);
 
@@ -72,7 +72,7 @@ export default function Admin() {
 
   async function setMerchantStatus(id: string, status: string) {
     try { await api.adminUpdateMerchantStatus(id, status); await load(); }
-    catch (e: any) { alert('Error: ' + e.message); }
+    catch (e: any) { Alert.alert('Error', e.message); }
   }
 
   async function handleSuspendUser(u: any) {
@@ -281,28 +281,6 @@ export default function Admin() {
               notify('Data orphan berhasil dibersihkan');
             } catch (e: any) { notify(e.message, 'Gagal'); }
           }}
-        />
-        <View style={{ height: 12 }} />
-        <Button
-          testID="factory-reset"
-          label="Reset semua data (kecuali admin)"
-          variant="danger"
-          onPress={() => Alert.alert(
-            'Reset Data',
-            'Ini akan menghapus SEMUA user, merchant, antrian, dan pembayaran. Akun admin dipertahankan. Tindakan ini TIDAK bisa dibatalkan!',
-            [
-              { text: 'Batal', style: 'cancel' },
-              {
-                text: 'Reset', style: 'destructive', onPress: async () => {
-                  try {
-                    await api.adminFactoryReset();
-                    await load();
-                    notify('Data berhasil direset');
-                  } catch (e: any) { notify(e.message, 'Gagal'); }
-                }
-              },
-            ]
-          )}
         />
       </ScrollView>
       <BottomDock />
