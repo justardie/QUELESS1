@@ -171,7 +171,8 @@ export default function Admin() {
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.name}>{m.name}</Text>
-                    <Text style={styles.muted}>{m.email || m.description || '—'}</Text>
+                    <Text style={styles.muted}>Login: {m.owner_email || m.email || '—'}</Text>
+                    {m.description ? <Text style={[styles.muted, { fontSize: 11 }]}>{m.description}</Text> : null}
                   </View>
                   <Badge
                     label={m.status}

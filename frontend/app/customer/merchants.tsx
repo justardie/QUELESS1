@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../src/theme';
 import { Card, ScreenHeader, Badge } from '../../src/ui';
+import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../src/bottomDock';
 import { api } from '../../src/api';
 import { useAuth } from '../../src/auth';
 
@@ -100,6 +101,7 @@ export default function Merchants() {
           />
         )}
       </View>
+      <BottomDock />
     </SafeAreaView>
   );
 }

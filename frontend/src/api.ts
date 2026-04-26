@@ -61,6 +61,7 @@ export const api = {
   serveEntry: (id: string, entryId: string) => request(`/merchants/${id}/queue/${entryId}/serve`, { method: 'POST' }),
   skipEntry: (id: string, entryId: string) => request(`/merchants/${id}/queue/${entryId}/skip`, { method: 'POST' }),
   tv: (id: string) => request(`/merchants/${id}/queue/tv`),
+  tvBySlug: (slug: string) => request(`/tv/${slug}`),
 
   // packages & subscriptions
   packages: () => request('/packages'),
