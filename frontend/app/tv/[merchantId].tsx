@@ -31,7 +31,7 @@ export default function TVDisplay() {
   useEffect(() => {
     let alive = true;
     async function tick() {
-      try { const d = await api.tv(merchantId!); if (alive) setData(d); } catch {}
+      try { const d = await api.tvBySlug(merchantId!); if (alive) setData(d); } catch {}
     }
     async function loadSettings() {
       try { const s: any = await api.getSettings(); if (alive && s?.app_name) setAppName(s.app_name); } catch {}

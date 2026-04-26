@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -7,11 +7,19 @@ import { useColors, iosFontFamily } from '../../src/themeContext';
 import { Card, Hx, MutedText, BodyText, Button } from '../../src/ui';
 import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../src/bottomDock';
 import { useAuth } from '../../src/auth';
+import { api } from '../../src/api';
 
 export default function SettingsHub() {
   const router = useRouter();
   const c = useColors();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
+  const [activeSub, setActiveSub] = useState<any | null>(null);
+
+  useEffect(() => {
+    if (user?.role === 'customer') {
+      api.mySubscriptions().then((d: any) => setActiveSub(d?.active || null)).catch(() => {});
+    }
+  }, [user]);
 
   if (!user) {
     return (
@@ -27,8 +35,7 @@ export default function SettingsHub() {
   }
 
   const items: { label: string; sub: string; icon: any; to?: string; action?: () => void; show: boolean }[] = [
-    { label: 'Paket langganan saya', sub: 'Lihat kuota & riwayat pembelian', icon: 'card-outline', to: '/settings/subscription', show: user.role === 'customer' },
-    { label: 'Beli paket', sub: 'Upgrade atau perpanjang', icon: 'bag-handle-outline', to: '/settings/packages', show: user.role === 'customer' },
+    { label: 'Beli paket', sub: 'Upgrade atau perpanjang langganan', icon: 'bag-handle-outline', to: '/settings/packages', show: user.role === 'customer' },
     { label: 'Profil merchant', sub: 'Logo, foto, alamat & jam operasional', icon: 'storefront-outline', to: '/settings/merchant', show: user.role === 'merchant' },
     { label: 'Tampilan TV & QR code', sub: 'Link display TV + QR scan pelanggan', icon: 'qr-code-outline', to: '/merchant/shares', show: user.role === 'merchant' },
     { label: 'Tampilan aplikasi', sub: 'Logo, nama, tagline & warna tema', icon: 'color-palette-outline', to: '/settings/appearance', show: user.role === 'admin' },
@@ -43,6 +50,7 @@ export default function SettingsHub() {
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: BOTTOM_DOCK_HEIGHT + 60 }}>
         <Header title="Pengaturan" onBack={() => router.back()} />
 
+        {/* Profile card — with active package for customer */}
         <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.soft, alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="person-outline" size={22} color={c.primaryDark} />
@@ -50,6 +58,17 @@ export default function SettingsHub() {
           <View style={{ flex: 1 }}>
             <BodyText weight="700">{user.name}</BodyText>
             <MutedText size={13}>{user.email} • {user.role}</MutedText>
+            {user.role === 'customer' && activeSub && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#10b981' }} />
+                <MutedText size={12} style={{ color: '#065F46', fontWeight: '700' }}>
+                  {activeSub.package_name} · {activeSub.credits_remaining} kuota tersisa
+                </MutedText>
+              </View>
+            )}
+            {user.role === 'customer' && !activeSub && (
+              <MutedText size={12} style={{ marginTop: 2 }}>Belum ada paket aktif</MutedText>
+            )}
           </View>
         </Card>
 
@@ -76,37 +95,25 @@ export default function SettingsHub() {
 
         <View style={{ height: 20 }} />
         {user.role === 'admin' && (
-          <>
-            <Button
-              testID="cleanup-orphans"
-              label="Bersihkan data orphan"
-              variant="secondary"
-              onPress={() => {
-                Alert.alert('Bersihkan data orphan?', 'Akan menghapus merchant/queue/subscription/payment yang merujuk ke data yang sudah tidak ada.', [
-                  { text: 'Batal', style: 'cancel' },
-                  {
-                    text: 'Bersihkan', onPress: async () => {
-                      try {
-                        const r: any = await (require('../../src/api').api.adminCleanupOrphans());
-                        Alert.alert('Selesai', `Orphan merchants: ${r.orphan_merchants}\nQueue entries: ${r.orphan_queue_entries}\nSubscriptions: ${r.orphan_subscriptions}\nPayments: ${r.orphan_payments}`);
-                      } catch (e: any) { Alert.alert('Gagal', e.message); }
-                    }
-                  },
-                ]);
-              }}
-            />
-            <View style={{ height: 10 }} />
-          </>
+          <Button
+            testID="cleanup-orphans"
+            label="Bersihkan data orphan"
+            variant="secondary"
+            onPress={() => {
+              Alert.alert('Bersihkan data orphan?', 'Akan menghapus merchant/queue/subscription/payment yang merujuk ke data yang sudah tidak ada.', [
+                { text: 'Batal', style: 'cancel' },
+                {
+                  text: 'Bersihkan', onPress: async () => {
+                    try {
+                      const r: any = await (require('../../src/api').api.adminCleanupOrphans());
+                      Alert.alert('Selesai', `Orphan merchants: ${r.orphan_merchants}\nQueue entries: ${r.orphan_queue_entries}\nSubscriptions: ${r.orphan_subscriptions}\nPayments: ${r.orphan_payments}`);
+                    } catch (e: any) { Alert.alert('Gagal', e.message); }
+                  }
+                },
+              ]);
+            }}
+          />
         )}
-        <Button
-          testID="logout-button"
-          label="Keluar"
-          variant="secondary"
-          onPress={() => {
-            signOut();
-            router.replace('/');
-          }}
-        />
       </ScrollView>
       <BottomDock />
     </SafeAreaView>

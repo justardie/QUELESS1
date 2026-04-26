@@ -19,6 +19,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr
 
 import asyncio
+import re
 # ---------------------------------------------------------------------------
 # Setup
 # ---------------------------------------------------------------------------
@@ -110,6 +111,35 @@ def verify_password(password: str, hashed: str) -> bool:
         return bcrypt.checkpw(password.encode("utf-8"), hashed.encode("utf-8"))
     except Exception:
         return False
+
+
+def slugify(name: str) -> str:
+    s = name.lower()
+    s = re.sub(r'[àáâãäå]', 'a', s)
+    s = re.sub(r'[èéêë]', 'e', s)
+    s = re.sub(r'[ìíîï]', 'i', s)
+    s = re.sub(r'[òóôõö]', 'o', s)
+    s = re.sub(r'[ùúûü]', 'u', s)
+    s = re.sub(r'[^a-z0-9\s-]', '', s)
+    s = re.sub(r'\s+', '-', s.strip())
+    s = re.sub(r'-+', '-', s)
+    return s or "merchant"
+
+
+def is_within_operating_hours(hours_schedule: list) -> bool:
+    """Return True if current local time falls within any scheduled day/hours."""
+    if not hours_schedule:
+        return True  # No schedule set → always open
+    now = datetime.now()
+    today = now.weekday()  # 0=Mon, 6=Sun
+    current_hm = now.strftime("%H:%M")
+    for entry in hours_schedule:
+        if entry.get("day") == today:
+            op = entry.get("open", "00:00")
+            cl = entry.get("close", "23:59")
+            if op <= current_hm <= cl:
+                return True
+    return False
 
 
 def create_token(user_id: str, email: str, role: str) -> str:
@@ -206,7 +236,8 @@ class MerchantIn(BaseModel):
     hours_days: Optional[List[int]] = None  # 0=Mon..6=Sun
     hours_open: Optional[str] = ""  # "09:00"
     hours_close: Optional[str] = ""  # "21:00"
-    service_enabled: Optional[bool] = False  # default: services are optional (user can enable)
+    hours_schedule: Optional[List[dict]] = None  # [{day:0, open:"09:00", close:"21:00"}]
+    service_enabled: Optional[bool] = False
     is_open: Optional[bool] = True
 
 
@@ -256,13 +287,19 @@ class UpdateSubIn(BaseModel):
 def user_public(u: dict) -> dict:
     return {
         "id": u["id"], "email": u["email"], "name": u["name"], "role": u["role"],
+        "is_suspended": bool(u.get("is_suspended", False)),
         "created_at": iso(u.get("created_at")),
     }
 
 
-def merchant_public(m: dict) -> dict:
+def merchant_public(m: dict, owner_email: str = "") -> dict:
+    schedule = m.get("hours_schedule", [])
+    is_open_flag = m.get("is_open", True)
+    is_currently_open = is_open_flag and is_within_operating_hours(schedule)
     return {
         "id": m["id"], "owner_id": m["owner_id"], "name": m["name"],
+        "slug": m.get("slug", slugify(m.get("name", ""))),
+        "owner_email": owner_email or m.get("owner_email", ""),
         "description": m.get("description", ""), "address": m.get("address", ""),
         "logo_url": m.get("logo_url", ""), "photo_url": m.get("photo_url", ""),
         "tv_photo_url": m.get("tv_photo_url", ""),
@@ -271,8 +308,10 @@ def merchant_public(m: dict) -> dict:
         "hours_days": m.get("hours_days", []),
         "hours_open": m.get("hours_open", ""),
         "hours_close": m.get("hours_close", ""),
+        "hours_schedule": schedule,
         "service_enabled": m.get("service_enabled", False),
-        "is_open": m.get("is_open", True),
+        "is_open": is_open_flag,
+        "is_currently_open": is_currently_open,
         "status": m.get("status", "pending"),
         "categories": m.get("categories", []),
         "created_at": iso(m.get("created_at")),
@@ -475,9 +514,16 @@ async def create_merchant(body: MerchantIn, user: dict = Depends(require_role("m
         existing = await db.merchants.find_one({"owner_id": user["id"]})
         if existing:
             raise HTTPException(status_code=400, detail="Anda sudah memiliki 1 toko. 1 akun merchant hanya dapat mendaftarkan 1 toko.")
+    base_slug = slugify(body.name)
+    slug = base_slug
+    suffix = 1
+    while await db.merchants.find_one({"slug": slug}):
+        slug = f"{base_slug}-{suffix}"
+        suffix += 1
     m = {
         "id": str(uuid.uuid4()), "owner_id": user["id"],
-        "name": body.name, "description": body.description or "",
+        "name": body.name, "slug": slug,
+        "description": body.description or "",
         "address": body.address or "", "logo_url": body.logo_url or "",
         "photo_url": body.photo_url or "", "tv_photo_url": body.tv_photo_url or "",
         "tv_video_url": body.tv_video_url or "",
@@ -485,6 +531,7 @@ async def create_merchant(body: MerchantIn, user: dict = Depends(require_role("m
         "hours_days": body.hours_days or [],
         "hours_open": body.hours_open or "",
         "hours_close": body.hours_close or "",
+        "hours_schedule": body.hours_schedule or [],
         "service_enabled": body.service_enabled if body.service_enabled is not None else False,
         "is_open": body.is_open if body.is_open is not None else True,
         "status": "approved" if user["role"] == "admin" else "pending",
@@ -528,10 +575,12 @@ async def update_merchant(merchant_id: str, body: MerchantIn, user: dict = Depen
     for k, v in list(update.items()):
         if v is None and k in ("name", "description", "address", "logo_url", "photo_url", "tv_photo_url", "hours_text", "hours_open", "hours_close"):
             update[k] = ""
-        elif v is None and k == "hours_days":
+        elif v is None and k in ("hours_days", "hours_schedule"):
             update[k] = []
         elif v is None and k in ("is_open", "service_enabled"):
             update[k] = True
+    # Keep existing slug (never overwrite from update)
+    update.pop("slug", None)
     await db.merchants.update_one({"id": merchant_id}, {"$set": update})
     m = await db.merchants.find_one({"id": merchant_id}, {"_id": 0})
     return merchant_public(m)
@@ -1133,11 +1182,8 @@ async def serve_entry(merchant_id: str, entry_id: str, user: dict = Depends(get_
     return {"ok": True}
 
 
-@api.get("/merchants/{merchant_id}/queue/tv")
-async def tv_display(merchant_id: str):
-    m = await db.merchants.find_one({"id": merchant_id}, {"_id": 0})
-    if not m:
-        raise HTTPException(status_code=404, detail="Merchant not found")
+async def _tv_display_data(m: dict) -> dict:
+    merchant_id = m["id"]
     now_serving = await db.queue_entries.find_one(
         {"merchant_id": merchant_id, "status": "called"},
         {"_id": 0}, sort=[("called_at", -1)],
@@ -1155,6 +1201,25 @@ async def tv_display(merchant_id: str):
         "upcoming": upcoming,
         "recent_served": [entry_public(e) for e in recent_served],
     }
+
+
+@api.get("/merchants/{merchant_id}/queue/tv")
+async def tv_display(merchant_id: str):
+    m = await db.merchants.find_one({"id": merchant_id}, {"_id": 0})
+    if not m:
+        raise HTTPException(status_code=404, detail="Merchant not found")
+    return await _tv_display_data(m)
+
+
+@api.get("/tv/{slug}")
+async def tv_display_by_slug(slug: str):
+    m = await db.merchants.find_one({"slug": slug}, {"_id": 0})
+    if not m:
+        # Fallback: try by id for existing merchants without slug
+        m = await db.merchants.find_one({"id": slug}, {"_id": 0})
+    if not m:
+        raise HTTPException(status_code=404, detail="Merchant not found")
+    return await _tv_display_data(m)
 
 
 # ---------------------------------------------------------------------------
@@ -1257,7 +1322,12 @@ async def admin_delete_user(user_id: str, user: dict = Depends(require_role("adm
 @api.get("/admin/merchants")
 async def admin_merchants(user: dict = Depends(require_role("admin"))):
     cursor = db.merchants.find({}, {"_id": 0}).limit(500)
-    return [merchant_public(m) async for m in cursor]
+    out = []
+    async for m in cursor:
+        owner = await db.users.find_one({"id": m.get("owner_id")}, {"_id": 0, "password_hash": 0})
+        owner_email = owner["email"] if owner else ""
+        out.append(merchant_public(m, owner_email=owner_email))
+    return out
 
 
 @api.put("/admin/merchants/{merchant_id}/status")
@@ -1337,18 +1407,25 @@ async def admin_create_merchant(body: dict, admin: dict = Depends(require_role("
     }
     await db.users.insert_one(user_doc)
 
+    base_slug = slugify(name)
+    slug = base_slug
+    suffix = 1
+    while await db.merchants.find_one({"slug": slug}):
+        slug = f"{base_slug}-{suffix}"
+        suffix += 1
     merchant_doc = {
         "id": str(uuid.uuid4()), "owner_id": user_doc["id"],
-        "name": name, "description": business_type,
+        "name": name, "slug": slug, "description": business_type,
         "address": "", "logo_url": "",
         "photo_url": "", "tv_photo_url": "", "tv_video_url": "",
         "hours_text": "", "hours_days": [], "hours_open": "", "hours_close": "",
+        "hours_schedule": [],
         "service_enabled": False, "is_open": True,
         "status": "approved",  # admin-created are auto-approved
         "categories": [], "created_at": now_utc(),
     }
     await db.merchants.insert_one(merchant_doc)
-    return {"user": user_public(user_doc), "merchant": merchant_public(merchant_doc)}
+    return {"user": user_public(user_doc), "merchant": merchant_public(merchant_doc, owner_email=email)}
 
 
 @api.delete("/admin/merchants/{merchant_id}")

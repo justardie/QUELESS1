@@ -8,6 +8,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColors, iosFontFamily } from '../../src/themeContext';
 import { Card, Hx, MutedText, BodyText, Button, Badge } from '../../src/ui';
+import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../src/bottomDock';
 import { api } from '../../src/api';
 
 export default function PaymentsSettings() {
@@ -59,7 +60,7 @@ export default function PaymentsSettings() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }} edges={['top']}>
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: BOTTOM_DOCK_HEIGHT + 40 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
             <Ionicons name="arrow-back" size={22} color={c.text} />
@@ -151,6 +152,7 @@ export default function PaymentsSettings() {
           ])}
         />
       </ScrollView>
+      <BottomDock />
     </SafeAreaView>
   );
 }

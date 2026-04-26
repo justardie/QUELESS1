@@ -7,6 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useColors, iosFontFamily } from '../../src/themeContext';
 import { useTheme } from '../../src/themeContext';
 import { Card, Hx, MutedText, BodyText, Button } from '../../src/ui';
+import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../src/bottomDock';
 import { api } from '../../src/api';
 import { notify } from '../../src/alerts';
 
@@ -66,7 +67,7 @@ export default function Appearance() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.bg }]} edges={['top']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: BOTTOM_DOCK_HEIGHT + 40 }} keyboardShouldPersistTaps="handled">
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <TouchableOpacity onPress={() => router.back()} style={[styles.iconBtn, { backgroundColor: '#fff', borderColor: 'rgba(15,23,42,0.08)' }]}>
             <Ionicons name="arrow-back" size={22} color={c.text} />
@@ -162,6 +163,7 @@ export default function Appearance() {
         <Button testID="save-appearance" label={busy ? 'Menyimpan…' : 'Simpan perubahan'} onPress={save} disabled={busy} />
       </ScrollView>
       </KeyboardAvoidingView>
+      <BottomDock />
     </SafeAreaView>
   );
 }

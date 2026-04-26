@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,7 +7,15 @@ import QRCode from 'react-native-qrcode-svg';
 import * as Clipboard from 'expo-clipboard';
 import { useColors, iosFontFamily } from '../../src/themeContext';
 import { Card, Hx, MutedText, BodyText, Button } from '../../src/ui';
+import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../src/bottomDock';
 import { api } from '../../src/api';
+
+function getAppBaseUrl(): string {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  return process.env.EXPO_PUBLIC_BACKEND_URL || '';
+}
 
 export default function MerchantShares() {
   const router = useRouter();
@@ -28,8 +36,10 @@ export default function MerchantShares() {
     })();
   }, []);
 
-  const base = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-  const tvUrl = selected ? `${base}/tv/${selected.id}` : '';
+  const base = getAppBaseUrl();
+  const tvUrl = selected
+    ? `${base}/tv/${selected.slug || selected.id}`
+    : '';
   const qrUrl = selected ? `${base}/customer/merchant/${selected.id}` : '';
 
   async function copy(value: string, label: string) {
@@ -57,16 +67,16 @@ export default function MerchantShares() {
             <Button label="Buat merchant" onPress={() => router.push('/merchant/register')} />
           </Card>
         </View>
+        <BottomDock />
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: c.bg }} edges={['top']}>
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 60 }}>
+      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: BOTTOM_DOCK_HEIGHT + 40 }}>
         <Header title="Tampilan TV & QR code" onBack={() => router.back()} />
 
-        {/* Merchant picker (kalau lebih dari 1) */}
         {merchants.length > 1 && (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
             {merchants.map(m => (
@@ -122,11 +132,13 @@ export default function MerchantShares() {
 
               <View style={{ flexDirection: 'row', gap: 8, marginTop: 14, alignSelf: 'stretch' }}>
                 <Button testID="open-qr-page" label="Download QR" onPress={() => router.push(`/merchant-qr/${selected.id}`)} style={{ flex: 1 }} />
+                <Button testID="copy-qr-url" label="Salin link" variant="secondary" onPress={() => copy(qrUrl, 'Link QR')} style={{ flex: 1 }} />
               </View>
             </Card>
           </>
         )}
       </ScrollView>
+      <BottomDock />
     </SafeAreaView>
   );
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../src/theme';
 import { Card, Button } from '../../src/ui';
+import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../src/bottomDock';
 import { api } from '../../src/api';
 
 export default function RegisterMerchant() {
@@ -30,7 +31,7 @@ export default function RegisterMerchant() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
+        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: BOTTOM_DOCK_HEIGHT + 20 }}>
           <View style={{ marginBottom: 16 }}>
             <TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
               <Ionicons name="arrow-back" size={22} color={theme.colors.text} />
@@ -52,6 +53,7 @@ export default function RegisterMerchant() {
           <Button testID="create-merchant-button" label={busy ? 'Creating…' : 'Create merchant'} onPress={onCreate} disabled={busy} />
         </ScrollView>
       </KeyboardAvoidingView>
+      <BottomDock />
     </SafeAreaView>
   );
 }

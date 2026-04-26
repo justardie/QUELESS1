@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useColors, iosFontFamily } from '../../../src/themeContext';
 import { Card, Button, MutedText, BodyText, Hx } from '../../../src/ui';
+import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../../src/bottomDock';
 import { api } from '../../../src/api';
 import { useAuth } from '../../../src/auth';
 
@@ -95,7 +96,7 @@ export default function MerchantDetail() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.bg }]} edges={['top']}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ paddingBottom: BOTTOM_DOCK_HEIGHT + 20 }} showsVerticalScrollIndicator={false}>
 
         {/* Hero image (setengah halaman) */}
         <View style={styles.hero}>
@@ -221,6 +222,7 @@ export default function MerchantDetail() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      <BottomDock />
     </SafeAreaView>
   );
 }
