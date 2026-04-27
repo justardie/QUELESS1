@@ -80,7 +80,7 @@ export default function Merchants() {
               <TouchableOpacity
                 testID={`merchant-list-item-${item.id}`}
                 activeOpacity={0.9}
-                onPress={() => router.push(`/customer/merchant/${item.id}`)}
+                onPress={() => router.push(`/customer/merchant/${item.slug || item.id}`)}
                 style={{ marginBottom: 12 }}
               >
                 <Card style={styles.merchantCard}>

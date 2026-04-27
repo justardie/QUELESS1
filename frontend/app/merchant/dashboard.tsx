@@ -162,6 +162,16 @@ export default function MerchantDashboard() {
           </ScrollView>
         )}
 
+        {/* Billing warning */}
+        {selected && !selected.billing_active && (
+          <View style={{ backgroundColor: '#FEF3C7', borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, borderWidth: 1, borderColor: '#F59E0B' }}>
+            <Ionicons name="warning-outline" size={18} color="#92400E" />
+            <Text style={{ flex: 1, color: '#92400E', fontSize: 13, fontWeight: '600' }}>
+              {selected.billing_expires_at ? 'Billing Anda sudah kadaluarsa.' : 'Belum ada billing aktif.'} Hubungi admin.
+            </Text>
+          </View>
+        )}
+
         {/* Now serving */}
         <Card style={{ backgroundColor: theme.colors.brandSoft, borderColor: theme.colors.brand }}>
           <Text style={styles.smallLabel}>NOW SERVING</Text>

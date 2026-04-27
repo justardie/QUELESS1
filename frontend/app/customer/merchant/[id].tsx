@@ -12,8 +12,8 @@ import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../../src/bottomDock';
 import { api } from '../../../src/api';
 import { useAuth } from '../../../src/auth';
 
-const { height: SCREEN_H } = Dimensions.get('window');
-const HERO_H = Math.min(SCREEN_H * 0.42, 360);
+const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
+const HERO_H = Math.min(Math.round(SCREEN_W * 0.78), Math.round(SCREEN_H * 0.48), 380);
 
 export default function MerchantDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -64,13 +64,25 @@ export default function MerchantDetail() {
   }, [id]);
 
   async function onJoinPressed() {
-    // Merchant hanya boleh ambil nomor di merchantnya sendiri
-    if (user?.role === 'merchant') {
+    if (!user) {
+      Alert.alert('Login diperlukan', 'Silakan login atau daftar terlebih dahulu untuk mengambil nomor antrian.', [
+        { text: 'Batal', style: 'cancel' },
+        { text: 'Login / Daftar', onPress: () => router.push('/auth') },
+      ]);
+      return;
+    }
+    if (user.role === 'customer' && (!subStatus || !subStatus.hasActive)) {
+      Alert.alert('Paket diperlukan', 'Anda perlu memiliki paket langganan aktif untuk mengambil nomor antrian.', [
+        { text: 'Batal', style: 'cancel' },
+        { text: 'Beli paket', onPress: () => router.push('/settings/packages') },
+      ]);
+      return;
+    }
+    if (user.role === 'merchant') {
       if (m?.owner_id !== user.id) {
         Alert.alert('Tidak diizinkan', 'Akun merchant hanya dapat mengambil nomor antrian di toko sendiri.');
         return;
       }
-      // Minta input nama pelanggan sebelum join
       setCustomerName('');
       setShowNameModal(true);
       return;
