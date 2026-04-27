@@ -111,6 +111,8 @@ export const api = {
 
   adminMerchants: () => request('/admin/merchants'),
   adminUpdateMerchantStatus: (id: string, status: string) => request(`/admin/merchants/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
+  adminSetMerchantBilling: (id: string, plan: string) => request(`/admin/merchants/${id}/billing`, { method: 'PUT', body: JSON.stringify({ plan }) }),
+  adminRemoveMerchantBilling: (id: string) => request(`/admin/merchants/${id}/billing`, { method: 'DELETE' }),
   adminStats: () => request('/admin/stats'),
   adminQueueStats: () => request('/admin/queue-stats'),
 };

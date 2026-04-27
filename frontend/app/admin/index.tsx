@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator,
-  TouchableOpacity, Alert, RefreshControl, TextInput, Modal, Platform
+  TouchableOpacity, Alert, RefreshControl, TextInput, Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -57,6 +57,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<'merchants' | 'users'>('merchants');
   const [pwModal, setPwModal] = useState<{ id: string; type: 'user' | 'merchant' } | null>(null);
+  const [billingModal, setBillingModal] = useState<{ id: string; name: string } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -191,42 +192,53 @@ export default function Admin() {
         {tab === 'merchants' ? (
           <>
             <Button label="+ Tambah Merchant" onPress={() => router.push('/admin/create-merchant')} style={{ marginTop: 10 }} />
-            {merchants.map(m => (
-              <Card key={m.id} style={{ marginTop: 10 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.name}>{m.name}</Text>
-                    <Text style={styles.muted}>Login: {m.owner_email || m.email || '—'}</Text>
-                    {m.description ? <Text style={[styles.muted, { fontSize: 11 }]}>{m.description}</Text> : null}
+            {merchants.map(m => {
+              const billingActive = m.billing_active;
+              const billingExpiry = m.billing_expires_at ? new Date(m.billing_expires_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : null;
+              return (
+                <Card key={m.id} style={{ marginTop: 10 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.name}>{m.name}</Text>
+                      {m.owner_username ? <Text style={styles.muted}>@{m.owner_username}</Text> : null}
+                      <Text style={styles.muted}>{m.owner_email || m.email || '—'}</Text>
+                      {billingExpiry ? (
+                        <Text style={{ fontSize: 11, marginTop: 2, color: billingActive ? '#065F46' : '#DC2626', fontWeight: '600' }}>
+                          Billing {billingActive ? 'aktif' : 'kadaluarsa'} • {billingExpiry}
+                        </Text>
+                      ) : (
+                        <Text style={{ fontSize: 11, marginTop: 2, color: '#92400E' }}>Belum ada billing</Text>
+                      )}
+                    </View>
+                    <View style={{ gap: 4, alignItems: 'flex-end' }}>
+                      <Badge
+                        label={m.status}
+                        color={m.status === 'approved' ? theme.colors.mint : m.status === 'pending' ? theme.colors.sun : theme.colors.peach}
+                        textColor={m.status === 'approved' ? '#065F46' : m.status === 'pending' ? '#92400E' : '#7F1D1D'}
+                      />
+                      {m.billing_plan && (
+                        <Badge
+                          label={m.billing_plan === '6_months' ? '6 bln' : '12 bln'}
+                          color={billingActive ? theme.colors.mint : theme.colors.peach}
+                          textColor={billingActive ? '#065F46' : '#7F1D1D'}
+                        />
+                      )}
+                    </View>
                   </View>
-                  <Badge
-                    label={m.status}
-                    color={m.status === 'approved' ? theme.colors.mint : m.status === 'pending' ? theme.colors.sun : theme.colors.peach}
-                    textColor={m.status === 'approved' ? '#065F46' : m.status === 'pending' ? '#92400E' : '#7F1D1D'}
-                  />
-                </View>
-                <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-                  {m.status !== 'approved' && (
-                    <Button label="Aktifkan" onPress={() => setMerchantStatus(m.id, 'approved')} style={{ flex: 1, minWidth: 90 }} />
-                  )}
-                  {m.status !== 'suspended' && (
-                    <Button label="Suspend" variant="secondary" onPress={() => setMerchantStatus(m.id, 'suspended')} style={{ flex: 1, minWidth: 90 }} />
-                  )}
-                  <Button
-                    label="Ganti PW"
-                    variant="secondary"
-                    onPress={() => setPwModal({ id: m.id, type: 'merchant' })}
-                    style={{ flex: 1, minWidth: 90 }}
-                  />
-                  <Button
-                    label="Hapus"
-                    variant="danger"
-                    onPress={() => handleDeleteMerchant(m)}
-                    style={{ flex: 1, minWidth: 90 }}
-                  />
-                </View>
-              </Card>
-            ))}
+                  <View style={{ flexDirection: 'row', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                    {m.status !== 'approved' && (
+                      <Button label="Aktifkan" onPress={() => setMerchantStatus(m.id, 'approved')} style={{ flex: 1, minWidth: 90 }} />
+                    )}
+                    {m.status !== 'suspended' && (
+                      <Button label="Suspend" variant="secondary" onPress={() => setMerchantStatus(m.id, 'suspended')} style={{ flex: 1, minWidth: 90 }} />
+                    )}
+                    <Button label="Billing" variant="secondary" onPress={() => setBillingModal({ id: m.id, name: m.name })} style={{ flex: 1, minWidth: 90 }} />
+                    <Button label="Ubah Password" variant="secondary" onPress={() => setPwModal({ id: m.id, type: 'merchant' })} style={{ flex: 1, minWidth: 90 }} />
+                    <Button label="Hapus" variant="danger" onPress={() => handleDeleteMerchant(m)} style={{ flex: 1, minWidth: 90 }} />
+                  </View>
+                </Card>
+              );
+            })}
           </>
         ) : (
           users.map(u => (
@@ -234,6 +246,7 @@ export default function Admin() {
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.name}>{u.name}</Text>
+                  {u.username ? <Text style={styles.muted}>@{u.username}</Text> : null}
                   <Text style={styles.muted}>{u.email}</Text>
                   {u.is_suspended && (
                     <Text style={{ color: '#DC2626', fontSize: 12, marginTop: 2, fontWeight: '700' }}>
@@ -254,18 +267,8 @@ export default function Admin() {
                   onPress={() => handleSuspendUser(u)}
                   style={{ flex: 1, minWidth: 90 }}
                 />
-                <Button
-                  label="Ganti PW"
-                  variant="secondary"
-                  onPress={() => setPwModal({ id: u.id, type: 'user' })}
-                  style={{ flex: 1, minWidth: 90 }}
-                />
-                <Button
-                  label="Hapus"
-                  variant="danger"
-                  onPress={() => handleDeleteUser(u)}
-                  style={{ flex: 1, minWidth: 90 }}
-                />
+                <Button label="Ubah Password" variant="secondary" onPress={() => setPwModal({ id: u.id, type: 'user' })} style={{ flex: 1, minWidth: 90 }} />
+                <Button label="Hapus" variant="danger" onPress={() => handleDeleteUser(u)} style={{ flex: 1, minWidth: 90 }} />
               </View>
             </Card>
           ))
@@ -283,6 +286,34 @@ export default function Admin() {
           }}
         />
       </ScrollView>
+      {/* Billing Modal */}
+      {billingModal && (
+        <Modal visible transparent animationType="fade" onRequestClose={() => setBillingModal(null)}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalBox}>
+              <Text style={styles.modalTitle}>Set Billing: {billingModal.name}</Text>
+              <Text style={{ color: theme.colors.textMuted, marginBottom: 16, fontSize: 13 }}>Pilih kontrak billing untuk merchant ini.</Text>
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: theme.colors.brandSoft, marginBottom: 10, height: 'auto', paddingVertical: 14 }]}
+                onPress={async () => {
+                  try { await api.adminSetMerchantBilling(billingModal.id, '6_months'); await load(); notify('Billing 6 bulan diaktifkan'); setBillingModal(null); }
+                  catch (e: any) { notify(e.message, 'Gagal'); }
+                }}>
+                <Text style={{ fontWeight: '700', color: theme.colors.brandDark }}>6 Bulan</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: theme.colors.mint, marginBottom: 16, height: 'auto', paddingVertical: 14 }]}
+                onPress={async () => {
+                  try { await api.adminSetMerchantBilling(billingModal.id, '12_months'); await load(); notify('Billing 12 bulan diaktifkan'); setBillingModal(null); }
+                  catch (e: any) { notify(e.message, 'Gagal'); }
+                }}>
+                <Text style={{ fontWeight: '700', color: '#065F46' }}>12 Bulan</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#eee' }]} onPress={() => setBillingModal(null)}>
+                <Text style={{ fontWeight: '600' }}>Batal</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+      )}
       <BottomDock />
     </SafeAreaView>
   );

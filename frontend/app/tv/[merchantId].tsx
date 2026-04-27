@@ -26,7 +26,7 @@ export default function TVDisplay() {
   const [data, setData] = useState<any | null>(null);
   const [appName, setAppName] = useState<string>('QUELESS');
   const [now, setNow] = useState<Date>(new Date());
-  const [muted, setMuted] = useState(true);
+  const [started, setStarted] = useState(false);
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
 
@@ -141,22 +141,30 @@ export default function TVDisplay() {
           <View style={{ flex: landscape ? 0.68 : undefined, justifyContent: 'center' }}>
             <View style={[styles.mediaCard, { aspectRatio: 16 / 9 }]}>
               {videoId && Platform.OS === 'web' ? (
-                <>
-                  {/* @ts-ignore */}
-                  <iframe
-                    key={muted ? 'muted' : 'unmuted'}
-                    src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=${muted ? 1 : 0}&loop=1&controls=0&playlist=${videoId}&modestbranding=1&rel=0`}
-                    style={{ width: '100%', height: '100%', border: 0, borderRadius: 16 }}
-                    allow="autoplay; encrypted-media"
-                    allowFullScreen
-                  />
-                  <TouchableOpacity
-                    onPress={() => setMuted(v => !v)}
-                    style={{ position: 'absolute', bottom: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 20, padding: 8 }}
-                  >
-                    <Ionicons name={muted ? 'volume-mute' : 'volume-high'} size={22} color="#fff" />
-                  </TouchableOpacity>
-                </>
+                <View style={StyleSheet.absoluteFillObject}>
+                  {started ? (
+                    // @ts-ignore
+                    <iframe
+                      src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&loop=1&controls=0&playlist=${videoId}&modestbranding=1&rel=0`}
+                      style={{ width: '100%', height: '100%', border: 0 }}
+                      allow="autoplay; encrypted-media"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <TouchableOpacity
+                      style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }]}
+                      onPress={() => setStarted(true)}
+                    >
+                      {bgUrl ? <Image source={{ uri: bgUrl }} style={[StyleSheet.absoluteFillObject, { opacity: 0.5 }]} resizeMode="cover" /> : null}
+                      <View style={{ backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 60, padding: 22 }}>
+                        <Ionicons name="play" size={52} color="#fff" />
+                      </View>
+                      <Text style={{ color: '#fff', marginTop: 14, fontWeight: '700', fontSize: 18, textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 }}>
+                        Tap untuk mulai video dengan suara
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               ) : bgUrl ? (
                 <Image source={{ uri: bgUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
               ) : (

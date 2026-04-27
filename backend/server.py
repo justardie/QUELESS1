@@ -73,6 +73,36 @@ THEMES = {
         "bg": "#F8FAFC", "text": "#0C4A6E", "muted": "#64748B",
         "accent": "#F97316",
     },
+    "pure_white": {
+        "key": "pure_white", "label": "Pure White",
+        "primary": "#18181B", "primaryDark": "#09090B", "soft": "#F4F4F5",
+        "bg": "#FFFFFF", "text": "#18181B", "muted": "#71717A",
+        "accent": "#3F3F46",
+    },
+    "midnight": {
+        "key": "midnight", "label": "Midnight Dark",
+        "primary": "#6366F1", "primaryDark": "#4338CA", "soft": "#1E1B4B",
+        "bg": "#0F0F0F", "text": "#F1F5F9", "muted": "#94A3B8",
+        "accent": "#818CF8",
+    },
+    "crimson": {
+        "key": "crimson", "label": "Crimson Red",
+        "primary": "#DC2626", "primaryDark": "#991B1B", "soft": "#FEE2E2",
+        "bg": "#FFF7F7", "text": "#1C0A0A", "muted": "#6B7280",
+        "accent": "#F97316",
+    },
+    "forest": {
+        "key": "forest", "label": "Forest Green",
+        "primary": "#15803D", "primaryDark": "#14532D", "soft": "#DCFCE7",
+        "bg": "#F7FFF9", "text": "#052E16", "muted": "#6B7280",
+        "accent": "#84CC16",
+    },
+    "sunset": {
+        "key": "sunset", "label": "Sunset Orange",
+        "primary": "#EA580C", "primaryDark": "#9A3412", "soft": "#FFEDD5",
+        "bg": "#FFFBF7", "text": "#1C0A00", "muted": "#6B7280",
+        "accent": "#EAB308",
+    },
 }
 
 DEFAULT_SETTINGS = {
@@ -305,14 +335,18 @@ def user_public(u: dict) -> dict:
     }
 
 
-def merchant_public(m: dict, owner_email: str = "") -> dict:
+def merchant_public(m: dict, owner_email: str = "", owner_username: str = "") -> dict:
     schedule = m.get("hours_schedule", [])
     is_open_flag = m.get("is_open", True)
     is_currently_open = is_open_flag and is_within_operating_hours(schedule)
+    billing_plan = m.get("billing_plan")
+    billing_expires_at = m.get("billing_expires_at")
+    billing_active = bool(billing_plan and billing_expires_at and billing_expires_at > now_utc())
     return {
         "id": m["id"], "owner_id": m["owner_id"], "name": m["name"],
         "slug": m.get("slug", slugify(m.get("name", ""))),
         "owner_email": owner_email or m.get("owner_email", ""),
+        "owner_username": owner_username or m.get("owner_username", ""),
         "description": m.get("description", ""), "address": m.get("address", ""),
         "logo_url": m.get("logo_url", ""), "photo_url": m.get("photo_url", ""),
         "tv_photo_url": m.get("tv_photo_url", ""),
@@ -328,6 +362,9 @@ def merchant_public(m: dict, owner_email: str = "") -> dict:
         "status": m.get("status", "pending"),
         "categories": m.get("categories", []),
         "created_at": iso(m.get("created_at")),
+        "billing_plan": billing_plan,
+        "billing_expires_at": iso(billing_expires_at),
+        "billing_active": billing_active,
     }
 
 
@@ -613,6 +650,8 @@ async def my_merchants(user: dict = Depends(require_role("merchant", "admin"))):
 @api.get("/merchants/{merchant_id}")
 async def get_merchant(merchant_id: str):
     m = await db.merchants.find_one({"id": merchant_id}, {"_id": 0})
+    if not m:
+        m = await db.merchants.find_one({"slug": merchant_id}, {"_id": 0})
     if not m:
         raise HTTPException(status_code=404, detail="Merchant not found")
     return merchant_public(m)
@@ -1339,7 +1378,8 @@ async def admin_merchants(user: dict = Depends(require_role("admin"))):
     async for m in cursor:
         owner = await db.users.find_one({"id": m.get("owner_id")}, {"_id": 0, "password_hash": 0})
         owner_email = owner["email"] if owner else ""
-        out.append(merchant_public(m, owner_email=owner_email))
+        owner_username = owner.get("username", "") if owner else ""
+        out.append(merchant_public(m, owner_email=owner_email, owner_username=owner_username))
     return out
 
 
@@ -1455,6 +1495,36 @@ async def admin_delete_merchant(merchant_id: str, admin: dict = Depends(require_
         others = await db.merchants.count_documents({"owner_id": owner_id})
         if others == 0:
             await db.users.delete_one({"id": owner_id, "role": "merchant"})
+    return {"ok": True}
+
+
+class MerchantBillingIn(BaseModel):
+    plan: str  # "6_months" or "12_months"
+    starts_at: Optional[str] = None  # ISO date string, defaults to now
+
+
+@api.put("/admin/merchants/{merchant_id}/billing")
+async def set_merchant_billing(merchant_id: str, body: MerchantBillingIn, admin: dict = Depends(require_role("admin"))):
+    m = await db.merchants.find_one({"id": merchant_id})
+    if not m:
+        raise HTTPException(404, "Merchant not found")
+    starts = datetime.fromisoformat(body.starts_at) if body.starts_at else now_utc()
+    days = 180 if body.plan == "6_months" else 365
+    expires = starts + timedelta(days=days)
+    await db.merchants.update_one({"id": merchant_id}, {"$set": {
+        "billing_plan": body.plan,
+        "billing_starts_at": starts,
+        "billing_expires_at": expires,
+    }})
+    m = await db.merchants.find_one({"id": merchant_id}, {"_id": 0})
+    return merchant_public(m)
+
+
+@api.delete("/admin/merchants/{merchant_id}/billing")
+async def remove_merchant_billing(merchant_id: str, admin: dict = Depends(require_role("admin"))):
+    await db.merchants.update_one({"id": merchant_id}, {"$unset": {
+        "billing_plan": "", "billing_starts_at": "", "billing_expires_at": ""
+    }})
     return {"ok": True}
 
 
