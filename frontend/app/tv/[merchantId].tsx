@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, useWindowDimensions, Image, Platform, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, useWindowDimensions, Image, Platform } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
 import { useColors, iosFontFamily } from '../../src/themeContext';
 import { api } from '../../src/api';
 
@@ -26,7 +25,6 @@ export default function TVDisplay() {
   const [data, setData] = useState<any | null>(null);
   const [appName, setAppName] = useState<string>('QUELESS');
   const [now, setNow] = useState<Date>(new Date());
-  const [started, setStarted] = useState(false);
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
 
@@ -42,6 +40,21 @@ export default function TVDisplay() {
     const t = setInterval(tick, 2500);
     const clock = setInterval(() => setNow(new Date()), 1000);
     return () => { alive = false; clearInterval(t); clearInterval(clock); };
+  }, [merchantId]);
+
+  // Auto-unmute YouTube after it starts playing muted (browser autoplay requires mute=1 initially)
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const timer = setTimeout(() => {
+      try {
+        const el = document.getElementById('tv-yt-iframe') as any;
+        if (el?.contentWindow) {
+          el.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
+          el.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
+        }
+      } catch {}
+    }, 4000);
+    return () => clearTimeout(timer);
   }, [merchantId]);
 
   if (!data) {
@@ -142,28 +155,14 @@ export default function TVDisplay() {
             <View style={[styles.mediaCard, { aspectRatio: 16 / 9 }]}>
               {videoId && Platform.OS === 'web' ? (
                 <View style={StyleSheet.absoluteFillObject}>
-                  {started ? (
-                    // @ts-ignore
-                    <iframe
-                      src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=0&loop=1&controls=0&playlist=${videoId}&modestbranding=1&rel=0`}
-                      style={{ width: '100%', height: '100%', border: 0 }}
-                      allow="autoplay; encrypted-media"
-                      allowFullScreen
-                    />
-                  ) : (
-                    <TouchableOpacity
-                      style={[StyleSheet.absoluteFillObject, { backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }]}
-                      onPress={() => setStarted(true)}
-                    >
-                      {bgUrl ? <Image source={{ uri: bgUrl }} style={[StyleSheet.absoluteFillObject, { opacity: 0.5 }]} resizeMode="cover" /> : null}
-                      <View style={{ backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 60, padding: 22 }}>
-                        <Ionicons name="play" size={52} color="#fff" />
-                      </View>
-                      <Text style={{ color: '#fff', marginTop: 14, fontWeight: '700', fontSize: 18, textShadowColor: 'rgba(0,0,0,0.6)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 4 }}>
-                        Tap untuk mulai video dengan suara
-                      </Text>
-                    </TouchableOpacity>
-                  )}
+                  {/* @ts-ignore */}
+                  <iframe
+                    id="tv-yt-iframe"
+                    src={`https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&loop=1&controls=0&playlist=${videoId}&modestbranding=1&rel=0&enablejsapi=1`}
+                    style={{ width: '100%', height: '100%', border: 0 }}
+                    allow="autoplay; encrypted-media"
+                    allowFullScreen
+                  />
                 </View>
               ) : bgUrl ? (
                 <Image source={{ uri: bgUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />

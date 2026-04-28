@@ -58,6 +58,7 @@ export default function Admin() {
   const [tab, setTab] = useState<'merchants' | 'users'>('merchants');
   const [pwModal, setPwModal] = useState<{ id: string; type: 'user' | 'merchant' } | null>(null);
   const [billingModal, setBillingModal] = useState<{ id: string; name: string } | null>(null);
+  const [merchantPackages, setMerchantPackages] = useState<any[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -70,6 +71,13 @@ export default function Admin() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!billingModal) return;
+    api.adminPackages().then((pkgs: any[]) => {
+      setMerchantPackages(pkgs.filter((p: any) => p.target === 'merchant' && p.active));
+    }).catch(() => {});
+  }, [billingModal]);
 
   async function setMerchantStatus(id: string, status: string) {
     try { await api.adminUpdateMerchantStatus(id, status); await load(); }
@@ -274,17 +282,6 @@ export default function Admin() {
           ))
         )}
         <View style={{ height: 24 }} />
-        <Button
-          label="Bersihkan data orphan"
-          variant="secondary"
-          onPress={async () => {
-            try {
-              await api.adminCleanupOrphans();
-              await load();
-              notify('Data orphan berhasil dibersihkan');
-            } catch (e: any) { notify(e.message, 'Gagal'); }
-          }}
-        />
       </ScrollView>
       {/* Billing Modal */}
       {billingModal && (
@@ -292,20 +289,36 @@ export default function Admin() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalBox}>
               <Text style={styles.modalTitle}>Set Billing: {billingModal.name}</Text>
-              <Text style={{ color: theme.colors.textMuted, marginBottom: 16, fontSize: 13 }}>Pilih kontrak billing untuk merchant ini.</Text>
-              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: theme.colors.brandSoft, marginBottom: 10, height: 'auto', paddingVertical: 14 }]}
+              <Text style={{ color: theme.colors.textMuted, marginBottom: 12, fontSize: 13 }}>Pilih paket billing merchant.</Text>
+              {merchantPackages.length === 0 ? (
+                <Text style={{ color: theme.colors.textMuted, fontSize: 13, marginBottom: 12, textAlign: 'center' }}>
+                  Belum ada paket merchant. Buat paket baru di menu Paket Langganan dengan target "Merchant".
+                </Text>
+              ) : (
+                merchantPackages.map((pkg: any) => (
+                  <TouchableOpacity
+                    key={pkg.id}
+                    style={[styles.modalBtn, { backgroundColor: theme.colors.brandSoft, marginBottom: 10, height: 'auto', paddingVertical: 14 }]}
+                    onPress={async () => {
+                      try {
+                        await api.adminSetMerchantBilling(billingModal.id, pkg.id);
+                        await load();
+                        notify(`Billing "${pkg.name}" diaktifkan`);
+                        setBillingModal(null);
+                      } catch (e: any) { notify(e.message, 'Gagal'); }
+                    }}>
+                    <Text style={{ fontWeight: '700', color: theme.colors.brandDark }}>{pkg.name}</Text>
+                    <Text style={{ color: theme.colors.textMuted, fontSize: 12, marginTop: 2 }}>{pkg.duration_days} hari</Text>
+                  </TouchableOpacity>
+                ))
+              )}
+              <TouchableOpacity
+                style={[styles.modalBtn, { backgroundColor: '#fee2e2', marginBottom: 10, height: 'auto', paddingVertical: 12 }]}
                 onPress={async () => {
-                  try { await api.adminSetMerchantBilling(billingModal.id, '6_months'); await load(); notify('Billing 6 bulan diaktifkan'); setBillingModal(null); }
+                  try { await api.adminRemoveMerchantBilling(billingModal.id); await load(); notify('Billing dihapus'); setBillingModal(null); }
                   catch (e: any) { notify(e.message, 'Gagal'); }
                 }}>
-                <Text style={{ fontWeight: '700', color: theme.colors.brandDark }}>6 Bulan</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: theme.colors.mint, marginBottom: 16, height: 'auto', paddingVertical: 14 }]}
-                onPress={async () => {
-                  try { await api.adminSetMerchantBilling(billingModal.id, '12_months'); await load(); notify('Billing 12 bulan diaktifkan'); setBillingModal(null); }
-                  catch (e: any) { notify(e.message, 'Gagal'); }
-                }}>
-                <Text style={{ fontWeight: '700', color: '#065F46' }}>12 Bulan</Text>
+                <Text style={{ fontWeight: '600', color: '#DC2626' }}>Hapus Billing</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#eee' }]} onPress={() => setBillingModal(null)}>
                 <Text style={{ fontWeight: '600' }}>Batal</Text>

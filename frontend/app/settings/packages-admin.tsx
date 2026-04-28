@@ -26,7 +26,7 @@ export default function AdminPackages() {
   useEffect(() => { load(); }, []);
 
   function newPackage() {
-    setEditing({ name: '', description: '', price_idr: 0, quota_count: 1, duration_days: 30, active: true });
+    setEditing({ name: '', description: '', price_idr: 0, quota_count: 1, duration_days: 30, active: true, target: 'customer' });
   }
 
   async function save() {
@@ -74,6 +74,18 @@ export default function AdminPackages() {
             <TextInput testID="pkg-quota" keyboardType="numeric" style={styles.input(c)} value={String(editing.quota_count)} onChangeText={v => setEditing({ ...editing, quota_count: parseInt(v || '1', 10) || 1 })} />
             <Label>Berlaku (hari)</Label>
             <TextInput testID="pkg-days" keyboardType="numeric" style={styles.input(c)} value={String(editing.duration_days)} onChangeText={v => setEditing({ ...editing, duration_days: parseInt(v || '30', 10) || 30 })} />
+            <Label>Target</Label>
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 4 }}>
+              {(['customer', 'merchant'] as const).map(t => (
+                <TouchableOpacity
+                  key={t}
+                  onPress={() => setEditing({ ...editing, target: t })}
+                  style={{ paddingHorizontal: 18, paddingVertical: 8, borderRadius: 10, backgroundColor: (editing.target || 'customer') === t ? c.primary : '#F1F5F9' }}
+                >
+                  <Text style={{ color: (editing.target || 'customer') === t ? '#fff' : c.text, fontWeight: '600', textTransform: 'capitalize' }}>{t}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
               <BodyText style={{ flex: 1 }}>Aktif</BodyText>
               <Switch value={!!editing.active} onValueChange={v => setEditing({ ...editing, active: v })} trackColor={{ true: c.primary, false: '#CBD5E1' }} thumbColor="#fff" />
@@ -99,6 +111,7 @@ export default function AdminPackages() {
                   <Badge label={fmtIDR(p.price_idr)} />
                   <Badge label={`${p.quota_count}× antrian`} />
                   <Badge label={`${p.duration_days} hari`} />
+                  {p.target === 'merchant' && <Badge label="Merchant" color="#DBEAFE" textColor="#1E3A8A" />}
                   {!p.active && <Badge label="Nonaktif" color="#FEE2E2" textColor="#7F1D1D" />}
                 </View>
               </View>
