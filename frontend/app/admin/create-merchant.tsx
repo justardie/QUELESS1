@@ -13,6 +13,7 @@ export default function AdminCreateMerchant() {
   const router = useRouter();
   const c = useColors();
   const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [phone, setPhone] = useState('');
@@ -28,6 +29,7 @@ export default function AdminCreateMerchant() {
     try {
       await api.adminCreateMerchant({
         name: name.trim(),
+        username: username.trim().toLowerCase() || undefined,
         email: email.trim().toLowerCase(),
         password,
         phone: phone.trim(),
@@ -60,6 +62,16 @@ export default function AdminCreateMerchant() {
               value={name} onChangeText={setName}
               placeholder="mis. Kopi Kenangan Jaksel"
               placeholderTextColor={c.muted}
+              style={[styles.input, { color: c.text, fontFamily: iosFontFamily }]}
+            />
+
+            <Text style={[styles.label, { color: c.muted, fontFamily: iosFontFamily }]}>USERNAME (opsional, untuk login)</Text>
+            <TextInput
+              testID="merchant-username-input"
+              value={username} onChangeText={setUsername}
+              placeholder="mis. kopi_kenangan (otomatis jika kosong)"
+              placeholderTextColor={c.muted}
+              autoCapitalize="none"
               style={[styles.input, { color: c.text, fontFamily: iosFontFamily }]}
             />
 
@@ -105,7 +117,7 @@ export default function AdminCreateMerchant() {
             <View style={{ height: 18 }} />
             <Button testID="create-merchant-submit" label={busy ? 'Menyimpan…' : 'Simpan merchant'} onPress={submit} disabled={busy} />
             <MutedText size={11} style={{ marginTop: 8 }}>
-              Setelah dibuat, merchant bisa login dengan email & password di atas, lalu melengkapi profil toko.
+              Merchant bisa login dengan email atau username & password di atas, lalu melengkapi profil toko.
             </MutedText>
           </Card>
         </ScrollView>

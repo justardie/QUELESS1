@@ -70,8 +70,12 @@ export default function AdminPackages() {
             <TextInput testID="pkg-desc" style={styles.input(c)} value={editing.description} onChangeText={v => setEditing({ ...editing, description: v })} />
             <Label>Harga (Rupiah)</Label>
             <TextInput testID="pkg-price" keyboardType="numeric" style={styles.input(c)} value={String(editing.price_idr)} onChangeText={v => setEditing({ ...editing, price_idr: parseInt(v || '0', 10) || 0 })} />
-            <Label>Kuota antrian</Label>
-            <TextInput testID="pkg-quota" keyboardType="numeric" style={styles.input(c)} value={String(editing.quota_count)} onChangeText={v => setEditing({ ...editing, quota_count: parseInt(v || '1', 10) || 1 })} />
+            {(editing.target || 'customer') !== 'merchant' && (
+              <>
+                <Label>Kuota antrian</Label>
+                <TextInput testID="pkg-quota" keyboardType="numeric" style={styles.input(c)} value={String(editing.quota_count)} onChangeText={v => setEditing({ ...editing, quota_count: parseInt(v || '1', 10) || 1 })} />
+              </>
+            )}
             <Label>Berlaku (hari)</Label>
             <TextInput testID="pkg-days" keyboardType="numeric" style={styles.input(c)} value={String(editing.duration_days)} onChangeText={v => setEditing({ ...editing, duration_days: parseInt(v || '30', 10) || 30 })} />
             <Label>Target</Label>
@@ -109,7 +113,7 @@ export default function AdminPackages() {
                 <MutedText size={13}>{p.description}</MutedText>
                 <View style={{ flexDirection: 'row', gap: 6, marginTop: 8, flexWrap: 'wrap' }}>
                   <Badge label={fmtIDR(p.price_idr)} />
-                  <Badge label={`${p.quota_count}× antrian`} />
+                  {p.target !== 'merchant' && <Badge label={`${p.quota_count}× antrian`} />}
                   <Badge label={`${p.duration_days} hari`} />
                   {p.target === 'merchant' && <Badge label="Merchant" color="#DBEAFE" textColor="#1E3A8A" />}
                   {!p.active && <Badge label="Nonaktif" color="#FEE2E2" textColor="#7F1D1D" />}

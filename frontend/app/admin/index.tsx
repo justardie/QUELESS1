@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator,
-  TouchableOpacity, Alert, RefreshControl, TextInput, Modal
+  TouchableOpacity, RefreshControl, TextInput, Modal
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -12,6 +12,34 @@ import { api } from '../../src/api';
 import { notify } from '../../src/alerts';
 import { useAuth } from '../../src/auth';
 
+type ConfirmState = {
+  title: string; message: string; confirmLabel: string; danger?: boolean; onConfirm: () => void;
+} | null;
+
+function ConfirmModal({ modal, onClose }: { modal: ConfirmState; onClose: () => void }) {
+  if (!modal) return null;
+  return (
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalBox}>
+          <Text style={styles.modalTitle}>{modal.title}</Text>
+          <Text style={{ color: theme.colors.textMuted, marginBottom: 20, lineHeight: 20, fontSize: 14 }}>{modal.message}</Text>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#eee', flex: 1 }]} onPress={onClose}>
+              <Text style={{ fontWeight: '600' }}>Batal</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalBtn, { backgroundColor: modal.danger ? '#DC2626' : theme.colors.brand, flex: 1 }]}
+              onPress={() => { onClose(); modal.onConfirm(); }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '700' }}>{modal.confirmLabel}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 function ChangePasswordModal({ visible, onClose, onSubmit }: {
   visible: boolean; onClose: () => void; onSubmit: (pw: string) => void;
@@ -37,7 +65,7 @@ function ChangePasswordModal({ visible, onClose, onSubmit }: {
               style={[styles.modalBtn, { backgroundColor: theme.colors.brand }]}
               onPress={() => {
                 if (pw.length >= 6) { onSubmit(pw); setPw(''); }
-                else Alert.alert('Password minimal 6 karakter');
+                else notify('Password minimal 6 karakter', 'Error');
               }}>
               <Text style={{ color: '#fff', fontWeight: '600' }}>Simpan</Text>
             </TouchableOpacity>
@@ -59,6 +87,7 @@ export default function Admin() {
   const [pwModal, setPwModal] = useState<{ id: string; type: 'user' | 'merchant' } | null>(null);
   const [billingModal, setBillingModal] = useState<{ id: string; name: string } | null>(null);
   const [merchantPackages, setMerchantPackages] = useState<any[]>([]);
+  const [confirmModal, setConfirmModal] = useState<ConfirmState>(null);
 
   const load = useCallback(async () => {
     try {
@@ -66,7 +95,7 @@ export default function Admin() {
         api.adminStats(), api.adminMerchants(), api.adminUsers()
       ]);
       setStats(s); setMerchants(m); setUsers(u);
-    } catch (e: any) { Alert.alert('Error', e.message); }
+    } catch (e: any) { notify(e.message, 'Error'); }
     finally { setLoading(false); }
   }, []);
 
@@ -81,71 +110,59 @@ export default function Admin() {
 
   async function setMerchantStatus(id: string, status: string) {
     try { await api.adminUpdateMerchantStatus(id, status); await load(); }
-    catch (e: any) { Alert.alert('Error', e.message); }
+    catch (e: any) { notify(e.message, 'Error'); }
   }
 
-  async function handleSuspendUser(u: any) {
+  function handleSuspendUser(u: any) {
     const isSuspended = u.is_suspended;
-    const msg = isSuspended
-      ? `Aktifkan akun ${u.name}?`
-      : `Suspend akun ${u.name}? User tidak bisa login selama disuspend.`;
-    Alert.alert(
-      isSuspended ? 'Aktifkan akun' : 'Suspend akun',
-      msg,
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: isSuspended ? 'Aktifkan' : 'Suspend',
-          style: isSuspended ? 'default' : 'destructive',
-          onPress: async () => {
-            try {
-              if (isSuspended) await api.adminUnsuspendUser(u.id);
-              else await api.adminSuspendUser(u.id);
-              await load();
-              notify(isSuspended ? 'User berhasil diaktifkan' : 'User berhasil disuspend');
-            } catch (e: any) { notify(e.message, 'Gagal'); }
-          }
-        },
-      ]
-    );
+    setConfirmModal({
+      title: isSuspended ? 'Aktifkan akun' : 'Suspend akun',
+      message: isSuspended
+        ? `Aktifkan akun ${u.name}?`
+        : `Suspend akun ${u.name}? User tidak bisa login selama disuspend.`,
+      confirmLabel: isSuspended ? 'Aktifkan' : 'Suspend',
+      danger: !isSuspended,
+      onConfirm: async () => {
+        try {
+          if (isSuspended) await api.adminUnsuspendUser(u.id);
+          else await api.adminSuspendUser(u.id);
+          await load();
+          notify(isSuspended ? 'User berhasil diaktifkan' : 'User berhasil disuspend');
+        } catch (e: any) { notify(e.message, 'Gagal'); }
+      },
+    });
   }
 
-  async function handleDeleteUser(u: any) {
-    Alert.alert(
-      'Hapus akun',
-      `Hapus akun ${u.name} (${u.email})? Tindakan ini TIDAK bisa dibatalkan.`,
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Hapus', style: 'destructive', onPress: async () => {
-            try {
-              await api.adminDeleteUser(u.id);
-              await load();
-              notify(`Akun ${u.name} dihapus`);
-            } catch (e: any) { notify(e.message, 'Gagal'); }
-          }
-        },
-      ]
-    );
+  function handleDeleteUser(u: any) {
+    setConfirmModal({
+      title: 'Hapus akun',
+      message: `Hapus akun ${u.name} (${u.email})? Tindakan ini TIDAK bisa dibatalkan.`,
+      confirmLabel: 'Hapus',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await api.adminDeleteUser(u.id);
+          await load();
+          notify(`Akun ${u.name} dihapus`);
+        } catch (e: any) { notify(e.message, 'Gagal'); }
+      },
+    });
   }
 
-  async function handleDeleteMerchant(m: any) {
-    Alert.alert(
-      'Hapus merchant',
-      `Hapus merchant ${m.name}? Tindakan ini TIDAK bisa dibatalkan.`,
-      [
-        { text: 'Batal', style: 'cancel' },
-        {
-          text: 'Hapus', style: 'destructive', onPress: async () => {
-            try {
-              await api.adminDeleteMerchant(m.id);
-              await load();
-              notify(`Merchant ${m.name} dihapus`);
-            } catch (e: any) { notify(e.message, 'Gagal'); }
-          }
-        },
-      ]
-    );
+  function handleDeleteMerchant(m: any) {
+    setConfirmModal({
+      title: 'Hapus merchant',
+      message: `Hapus merchant "${m.name}"? Data antrian akan ikut terhapus. Tindakan ini TIDAK bisa dibatalkan.`,
+      confirmLabel: 'Hapus',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await api.adminDeleteMerchant(m.id);
+          await load();
+          notify(`Merchant ${m.name} dihapus`);
+        } catch (e: any) { notify(e.message, 'Gagal'); }
+      },
+    });
   }
 
   async function handleChangePassword(new_password: string) {
@@ -166,6 +183,7 @@ export default function Admin() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <ConfirmModal modal={confirmModal} onClose={() => setConfirmModal(null)} />
       <ChangePasswordModal
         visible={!!pwModal}
         onClose={() => setPwModal(null)}
@@ -226,7 +244,7 @@ export default function Admin() {
                       />
                       {m.billing_plan && (
                         <Badge
-                          label={m.billing_plan === '6_months' ? '6 bln' : '12 bln'}
+                          label={billingActive ? 'Aktif' : 'Expired'}
                           color={billingActive ? theme.colors.mint : theme.colors.peach}
                           textColor={billingActive ? '#065F46' : '#7F1D1D'}
                         />
@@ -258,7 +276,7 @@ export default function Admin() {
                   <Text style={styles.muted}>{u.email}</Text>
                   {u.is_suspended && (
                     <Text style={{ color: '#DC2626', fontSize: 12, marginTop: 2, fontWeight: '700' }}>
-                      ⚠ Akun Disuspend
+                      Akun Disuspend
                     </Text>
                   )}
                 </View>
@@ -357,7 +375,7 @@ const styles = StyleSheet.create({
   muted: { fontSize: 13, color: theme.colors.textMuted, marginTop: 2 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalBox: { backgroundColor: '#fff', borderRadius: 20, padding: 24, width: '85%' },
-  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },
   modalInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 12, paddingHorizontal: 14, height: 48, fontSize: 16 },
   modalBtn: { flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
 });
