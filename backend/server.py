@@ -1519,12 +1519,14 @@ async def admin_delete_merchant(merchant_id: str, admin: dict = Depends(require_
     return {"ok": True}
 
 
+class MerchantBillingSetIn(BaseModel):
+    package_id: str
+
+
 @api.post("/admin/merchants/{merchant_id}/billing")
-async def set_merchant_billing(merchant_id: str, body: dict, admin: dict = Depends(require_role("admin"))):
+async def set_merchant_billing(merchant_id: str, body: MerchantBillingSetIn, admin: dict = Depends(require_role("admin"))):
     """Set billing for a merchant using an existing merchant-targeted package."""
-    package_id = body.get("package_id")
-    if not package_id:
-        raise HTTPException(400, "package_id required")
+    package_id = body.package_id
     m = await db.merchants.find_one({"id": merchant_id})
     if not m:
         raise HTTPException(404, "Merchant not found")
