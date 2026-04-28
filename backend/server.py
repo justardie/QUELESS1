@@ -302,6 +302,7 @@ class PackageIn(BaseModel):
     quota_count: int = Field(ge=1)
     duration_days: int = Field(ge=1)
     active: bool = True
+    target: Optional[str] = "customer"  # "customer" or "merchant"
 
 
 class PaymentCreateIn(BaseModel):
@@ -343,7 +344,7 @@ def merchant_public(m: dict, owner_email: str = "", owner_username: str = "") ->
     billing_expires_at = m.get("billing_expires_at")
     billing_active = bool(billing_plan and billing_expires_at and billing_expires_at > now_utc())
     return {
-        "id": m["id"], "owner_id": m["owner_id"], "name": m["name"],
+        "id": m.get("id", ""), "owner_id": m.get("owner_id", ""), "name": m.get("name", ""),
         "slug": m.get("slug", slugify(m.get("name", ""))),
         "owner_email": owner_email or m.get("owner_email", ""),
         "owner_username": owner_username or m.get("owner_username", ""),
@@ -384,6 +385,7 @@ def package_public(p: dict) -> dict:
         "id": p["id"], "name": p["name"], "description": p.get("description", ""),
         "price_idr": p["price_idr"], "quota_count": p["quota_count"],
         "duration_days": p["duration_days"], "active": p.get("active", True),
+        "target": p.get("target", "customer"),
         "created_at": iso(p.get("created_at")),
     }
 
@@ -708,7 +710,7 @@ async def delete_category(merchant_id: str, category_id: str, user: dict = Depen
 # ---------------------------------------------------------------------------
 @api.get("/packages")
 async def public_packages():
-    cursor = db.packages.find({"active": True}, {"_id": 0}).sort("price_idr", 1).limit(50)
+    cursor = db.packages.find({"active": True, "target": {"$ne": "merchant"}}, {"_id": 0}).sort("price_idr", 1).limit(50)
     return [package_public(p) async for p in cursor]
 
 
@@ -724,6 +726,7 @@ async def admin_create_package(body: PackageIn, user: dict = Depends(require_rol
         "id": str(uuid.uuid4()), "name": body.name, "description": body.description or "",
         "price_idr": body.price_idr, "quota_count": body.quota_count,
         "duration_days": body.duration_days, "active": body.active,
+        "target": body.target or "customer",
         "created_at": now_utc(),
     }
     await db.packages.insert_one(p)
@@ -1376,10 +1379,13 @@ async def admin_merchants(user: dict = Depends(require_role("admin"))):
     cursor = db.merchants.find({}, {"_id": 0}).limit(500)
     out = []
     async for m in cursor:
-        owner = await db.users.find_one({"id": m.get("owner_id")}, {"_id": 0, "password_hash": 0})
-        owner_email = owner["email"] if owner else ""
-        owner_username = owner.get("username", "") if owner else ""
-        out.append(merchant_public(m, owner_email=owner_email, owner_username=owner_username))
+        try:
+            owner = await db.users.find_one({"id": m.get("owner_id")}, {"_id": 0, "password_hash": 0})
+            owner_email = owner["email"] if owner else ""
+            owner_username = owner.get("username", "") if owner else ""
+            out.append(merchant_public(m, owner_email=owner_email, owner_username=owner_username))
+        except Exception:
+            pass
     return out
 
 
@@ -1498,22 +1504,21 @@ async def admin_delete_merchant(merchant_id: str, admin: dict = Depends(require_
     return {"ok": True}
 
 
-class MerchantBillingIn(BaseModel):
-    plan: str  # "6_months" or "12_months"
-    starts_at: Optional[str] = None  # ISO date string, defaults to now
-
-
-@api.put("/admin/merchants/{merchant_id}/billing")
-async def set_merchant_billing(merchant_id: str, body: MerchantBillingIn, admin: dict = Depends(require_role("admin"))):
+@api.post("/admin/merchants/{merchant_id}/billing")
+async def set_merchant_billing(merchant_id: str, body: dict, admin: dict = Depends(require_role("admin"))):
+    """Set billing for a merchant using an existing merchant-targeted package."""
+    package_id = body.get("package_id")
+    if not package_id:
+        raise HTTPException(400, "package_id required")
     m = await db.merchants.find_one({"id": merchant_id})
     if not m:
         raise HTTPException(404, "Merchant not found")
-    starts = datetime.fromisoformat(body.starts_at) if body.starts_at else now_utc()
-    days = 180 if body.plan == "6_months" else 365
-    expires = starts + timedelta(days=days)
+    pkg = await db.packages.find_one({"id": package_id})
+    if not pkg:
+        raise HTTPException(404, "Package not found")
+    expires = now_utc() + timedelta(days=pkg["duration_days"])
     await db.merchants.update_one({"id": merchant_id}, {"$set": {
-        "billing_plan": body.plan,
-        "billing_starts_at": starts,
+        "billing_plan": pkg["name"],
         "billing_expires_at": expires,
     }})
     m = await db.merchants.find_one({"id": merchant_id}, {"_id": 0})
@@ -1523,7 +1528,7 @@ async def set_merchant_billing(merchant_id: str, body: MerchantBillingIn, admin:
 @api.delete("/admin/merchants/{merchant_id}/billing")
 async def remove_merchant_billing(merchant_id: str, admin: dict = Depends(require_role("admin"))):
     await db.merchants.update_one({"id": merchant_id}, {"$unset": {
-        "billing_plan": "", "billing_starts_at": "", "billing_expires_at": ""
+        "billing_plan": "", "billing_expires_at": ""
     }})
     return {"ok": True}
 
