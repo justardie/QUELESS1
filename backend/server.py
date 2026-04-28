@@ -630,12 +630,18 @@ async def create_merchant(body: MerchantIn, user: dict = Depends(require_role("m
 
 @api.get("/merchants")
 async def list_merchants():
+    now = now_utc()
     cursor = db.merchants.find({"status": "approved"}, {"_id": 0}).limit(200)
     out = []
     async for m in cursor:
+        billing_plan = m.get("billing_plan")
+        billing_expires_at = m.get("billing_expires_at")
+        billing_active = bool(billing_plan and billing_expires_at and billing_expires_at > now)
+        if not billing_active:
+            continue
         data = merchant_public(m)
         data["active_queue_count"] = await db.queue_entries.count_documents(
-            {"merchant_id": m["id"], "status": {"$in": ["waiting", "called"]}}
+            {"merchant_id": m.get("id", ""), "status": {"$in": ["waiting", "called"]}}
         )
         out.append(data)
     return out
@@ -1453,16 +1459,25 @@ async def admin_create_merchant(body: dict, admin: dict = Depends(require_role("
     password = body.get("password") or ""
     phone = (body.get("phone") or "").strip()
     business_type = (body.get("business_type") or "").strip()
+    username_input = (body.get("username") or "").strip().lower()
     if not name or not email or not password:
         raise HTTPException(status_code=400, detail="Nama, email, dan password wajib diisi")
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Email sudah terdaftar")
+    # Generate unique username from input or merchant name
+    base_uname = re.sub(r'[^a-z0-9_]', '', username_input or name.lower().replace(' ', '_')) or "merchant"
+    username = base_uname
+    suffix = 1
+    while await db.users.find_one({"username": username}):
+        username = f"{base_uname}{suffix}"
+        suffix += 1
 
     user_doc = {
         "id": str(uuid.uuid4()), "email": email,
         "password_hash": hash_password(password), "name": name,
+        "username": username,
         "role": "merchant", "created_at": now_utc(),
-        "phone": phone,  # admin-only note
+        "phone": phone,
     }
     await db.users.insert_one(user_doc)
 

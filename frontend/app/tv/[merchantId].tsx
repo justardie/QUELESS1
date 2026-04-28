@@ -66,6 +66,7 @@ export default function TVDisplay() {
   const merchant = data.merchant || {};
   const videoId = extractYouTubeId(merchant.tv_video_url || '');
   const bgUrl = merchant.tv_photo_url || merchant.photo_url || '';
+  const billingActive = merchant.billing_active !== false; // default true if field missing
 
   // Calculate sizes based on landscape viewport (reference layout scales with screen)
   const pad = landscape ? Math.min(width, height) * 0.03 : 16;
@@ -74,6 +75,13 @@ export default function TVDisplay() {
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <LinearGradient colors={[c.soft, c.bg]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFillObject} />
+      {/* Billing inactive overlay */}
+      {!billingActive && (
+        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(0,0,0,0.82)', alignItems: 'center', justifyContent: 'center', zIndex: 999 }]}>
+          <Text style={{ color: '#fff', fontSize: landscape ? Math.min(width, height) * 0.07 : 36, fontWeight: '900', letterSpacing: -1, fontFamily: iosFontFamily }}>Belum Subscribe</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: landscape ? Math.min(width, height) * 0.028 : 15, marginTop: 14, fontFamily: iosFontFamily }}>Hubungi admin untuk aktivasi billing</Text>
+        </View>
+      )}
 
       <View style={[styles.root, { padding: pad }]}>
         {/* ===== TOP BAR: Logo + Name (left) | JAM + Date (right) ===== */}
