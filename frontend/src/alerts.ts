@@ -40,7 +40,7 @@ export function notify(message: string, title = 'Berhasil') {
     if (typeof document !== 'undefined') {
       const isError = title && title !== 'Berhasil';
       const el = document.createElement('div');
-      el.style.cssText = `position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:${isError ? '#7F1D1D' : '#1e293b'};color:#fff;padding:12px 20px;border-radius:14px;font-size:14px;font-weight:600;z-index:99999;opacity:1;transition:opacity 0.4s;max-width:88vw;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.18);pointer-events:none;`;
+      el.style.cssText = `position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:${isError ? '#7F1D1D' : '#1e293b'};color:#fff;padding:12px 20px;border-radius:14px;font-size:14px;font-weight:600;z-index:99999;opacity:1;transition:opacity 0.4s;max-width:88vw;text-align:center;box-shadow:0 4px 24px rgba(0,0,0,0.18);pointer-events:none;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text","Helvetica Neue",Helvetica,Arial,sans-serif;`;
       el.textContent = message || title;
       document.body.appendChild(el);
       setTimeout(() => { el.style.opacity = '0'; setTimeout(() => { if (el.parentNode) el.parentNode.removeChild(el); }, 400); }, 2500);
