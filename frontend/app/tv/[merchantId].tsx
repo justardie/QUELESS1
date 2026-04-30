@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, useWindowDimensions, Image, Platform } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, useWindowDimensions, Image, Platform, TouchableOpacity } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useColors, iosFontFamily } from '../../src/themeContext';
@@ -25,6 +25,7 @@ export default function TVDisplay() {
   const [data, setData] = useState<any | null>(null);
   const [appName, setAppName] = useState<string>('QUELESS');
   const [now, setNow] = useState<Date>(new Date());
+  const [soundEnabled, setSoundEnabled] = useState(false);
   const { width, height } = useWindowDimensions();
   const landscape = width > height;
 
@@ -42,22 +43,18 @@ export default function TVDisplay() {
     return () => { alive = false; clearInterval(t); clearInterval(clock); };
   }, [merchantId]);
 
-  // Auto-unmute YouTube: browser blocks unmuted autoplay, so we start muted then unmute via postMessage.
-  // Retry multiple times to handle slow connections / lazy iframe init.
-  useEffect(() => {
+  function enableSound() {
     if (Platform.OS !== 'web') return;
-    function tryUnmute() {
-      try {
-        const el = document.getElementById('tv-yt-iframe') as any;
-        if (!el?.contentWindow) return;
+    try {
+      const el = document.getElementById('tv-yt-iframe') as any;
+      if (el?.contentWindow) {
         el.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
         el.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
         el.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
-      } catch {}
-    }
-    const timers = [2000, 5000, 8000, 13000].map(ms => setTimeout(tryUnmute, ms));
-    return () => timers.forEach(clearTimeout);
-  }, [merchantId]);
+      }
+    } catch {}
+    setSoundEnabled(true);
+  }
 
   if (!data) {
     return <View style={[styles.center, { backgroundColor: c.bg }]}><ActivityIndicator color={c.primary} /></View>;
@@ -173,6 +170,15 @@ export default function TVDisplay() {
                     allow="autoplay; encrypted-media"
                     allowFullScreen
                   />
+                  {!soundEnabled && (
+                    <TouchableOpacity
+                      onPress={enableSound}
+                      style={styles.soundBtn}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={styles.soundBtnText}>🔊  Tap untuk aktifkan suara</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               ) : bgUrl ? (
                 <Image source={{ uri: bgUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
@@ -223,4 +229,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   footerText: { fontWeight: '400' },
+  soundBtn: {
+    position: 'absolute', bottom: 14, left: '50%',
+    transform: [{ translateX: -100 }],
+    backgroundColor: 'rgba(0,0,0,0.72)',
+    paddingHorizontal: 20, paddingVertical: 10,
+    borderRadius: 999,
+    alignItems: 'center',
+  },
+  soundBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

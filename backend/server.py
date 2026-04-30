@@ -165,7 +165,7 @@ def is_within_operating_hours(hours_schedule: list) -> bool:
     current_hm = now.strftime("%H:%M")
     today_entries = [e for e in hours_schedule if e.get("day") == today]
     if not today_entries:
-        return True  # Today not in schedule → treat as open
+        return False  # Today not in schedule → closed
     for entry in today_entries:
         op = entry.get("open", "00:00")
         cl = entry.get("close", "23:59")
