@@ -13,7 +13,7 @@ import { api } from '../../../src/api';
 import { useAuth } from '../../../src/auth';
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
-const HERO_H = Math.min(Math.round(SCREEN_W * 0.78), Math.round(SCREEN_H * 0.48), 380);
+const HERO_H = Math.round(Math.min(SCREEN_H * 0.62, 520));
 
 export default function MerchantDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,6 +27,7 @@ export default function MerchantDetail() {
   const [showNameModal, setShowNameModal] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [subStatus, setSubStatus] = useState<{ credits: number; hasActive: boolean } | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -65,10 +66,7 @@ export default function MerchantDetail() {
 
   async function onJoinPressed() {
     if (!user) {
-      Alert.alert('Login diperlukan', 'Silakan login atau daftar terlebih dahulu untuk mengambil nomor antrian.', [
-        { text: 'Batal', style: 'cancel' },
-        { text: 'Login / Daftar', onPress: () => router.push('/auth') },
-      ]);
+      setShowLoginModal(true);
       return;
     }
     if (user.role === 'customer' && (!subStatus || !subStatus.hasActive)) {
@@ -175,7 +173,7 @@ export default function MerchantDetail() {
               </View>
             </View>
 
-            <View style={{ height: 14 }} />
+            <View style={{ height: 8 }} />
             {!!m.address && (
               <View style={styles.infoRow}>
                 <Ionicons name="location-outline" size={16} color={c.muted} />
@@ -260,6 +258,27 @@ export default function MerchantDetail() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+      {/* Modal: login/daftar diperlukan */}
+      <Modal visible={showLoginModal} transparent animationType="fade" onRequestClose={() => setShowLoginModal(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalCard, { backgroundColor: c.bg }]}>
+            <View style={{ alignItems: 'center', marginBottom: 14 }}>
+              <View style={{ width: 52, height: 52, borderRadius: 16, backgroundColor: c.soft, alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                <Ionicons name="person-outline" size={26} color={c.primary} />
+              </View>
+              <Hx size={18}>Masuk dulu, yuk!</Hx>
+              <MutedText size={13} style={{ marginTop: 6, textAlign: 'center', lineHeight: 20 }}>
+                Daftar atau masuk untuk mengambil nomor antrian dengan mudah.
+              </MutedText>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+              <Button label="Batal" variant="secondary" onPress={() => setShowLoginModal(false)} style={{ flex: 1 }} />
+              <Button label="Masuk / Daftar" onPress={() => { setShowLoginModal(false); router.push('/auth'); }} style={{ flex: 1 }} />
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <BottomDock />
     </SafeAreaView>
   );
