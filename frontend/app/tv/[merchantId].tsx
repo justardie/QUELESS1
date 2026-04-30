@@ -11,7 +11,7 @@ function extractYouTubeId(url: string): string | null {
   return m ? m[1] : null;
 }
 function formatTime(d: Date) {
-  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+  return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
 }
 function formatDate(d: Date) {
   const days = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
@@ -42,19 +42,21 @@ export default function TVDisplay() {
     return () => { alive = false; clearInterval(t); clearInterval(clock); };
   }, [merchantId]);
 
-  // Auto-unmute YouTube after it starts playing muted (browser autoplay requires mute=1 initially)
+  // Auto-unmute YouTube: browser blocks unmuted autoplay, so we start muted then unmute via postMessage.
+  // Retry multiple times to handle slow connections / lazy iframe init.
   useEffect(() => {
     if (Platform.OS !== 'web') return;
-    const timer = setTimeout(() => {
+    function tryUnmute() {
       try {
         const el = document.getElementById('tv-yt-iframe') as any;
-        if (el?.contentWindow) {
-          el.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
-          el.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
-        }
+        if (!el?.contentWindow) return;
+        el.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'playVideo', args: [] }), '*');
+        el.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
+        el.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
       } catch {}
-    }, 4000);
-    return () => clearTimeout(timer);
+    }
+    const timers = [2000, 5000, 8000, 13000].map(ms => setTimeout(tryUnmute, ms));
+    return () => timers.forEach(clearTimeout);
   }, [merchantId]);
 
   if (!data) {
@@ -108,7 +110,7 @@ export default function TVDisplay() {
           {/* Right: JAM + date */}
           <View style={{ alignItems: 'flex-end', marginLeft: gap }}>
             <Text
-              style={[styles.jam, { color: c.text, fontFamily: iosFontFamily, fontSize: landscape ? Math.min(width, height) * 0.12 : 48 }]}
+              style={[styles.jam, { color: c.text, fontFamily: iosFontFamily, fontSize: landscape ? Math.min(width, height) * 0.088 : 36 }]}
               numberOfLines={1}
             >
               {formatTime(now)}
@@ -204,7 +206,7 @@ const styles = StyleSheet.create({
   },
   logoBox: { width: 72, height: 96, borderRadius: 6, borderWidth: 2 },
   merchName: { fontWeight: '600', letterSpacing: -0.5, flexShrink: 1 },
-  jam: { fontWeight: '700', letterSpacing: -3, includeFontPadding: false, lineHeight: undefined },
+  jam: { fontWeight: '700', letterSpacing: -1, includeFontPadding: false, lineHeight: undefined },
   date: { marginTop: 2, fontWeight: '400' },
   numberCard: {
     flex: 1,
