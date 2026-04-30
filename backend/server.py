@@ -322,6 +322,23 @@ class UserUpdateIn(BaseModel):
     avatar_url: Optional[str] = None
 
 
+class AdminCreateMerchantIn(BaseModel):
+    name: str
+    email: str
+    password: str
+    phone: Optional[str] = ""
+    business_type: Optional[str] = ""
+    username: Optional[str] = None
+
+
+class MerchantBillingSetIn(BaseModel):
+    package_id: str
+
+
+class ChangePasswordIn(BaseModel):
+    new_password: str
+
+
 # ---------------------------------------------------------------------------
 # Serializers
 # ---------------------------------------------------------------------------
@@ -342,6 +359,8 @@ def merchant_public(m: dict, owner_email: str = "", owner_username: str = "") ->
     is_currently_open = is_open_flag and is_within_operating_hours(schedule)
     billing_plan = m.get("billing_plan")
     billing_expires_at = m.get("billing_expires_at")
+    if billing_expires_at and getattr(billing_expires_at, 'tzinfo', None) is None:
+        billing_expires_at = billing_expires_at.replace(tzinfo=timezone.utc)
     billing_active = bool(billing_plan and billing_expires_at and billing_expires_at > now_utc())
     return {
         "id": m.get("id", ""), "owner_id": m.get("owner_id", ""), "name": m.get("name", ""),
@@ -636,6 +655,8 @@ async def list_merchants():
     async for m in cursor:
         billing_plan = m.get("billing_plan")
         billing_expires_at = m.get("billing_expires_at")
+        if billing_expires_at and getattr(billing_expires_at, 'tzinfo', None) is None:
+            billing_expires_at = billing_expires_at.replace(tzinfo=timezone.utc)
         billing_active = bool(billing_plan and billing_expires_at and billing_expires_at > now)
         if not billing_active:
             continue
@@ -1365,9 +1386,9 @@ async def unsuspend_user(user_id: str, user: dict = Depends(require_role("admin"
 
 @api.put("/admin/users/{user_id}/password")
 async def admin_change_user_password(
-    user_id: str, body: dict, user: dict = Depends(require_role("admin"))
+    user_id: str, body: ChangePasswordIn, user: dict = Depends(require_role("admin"))
 ):
-    new_password = body.get("new_password", "")
+    new_password = body.new_password
     if len(new_password) < 6:
         raise HTTPException(400, "Password minimal 6 karakter")
     hashed = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
@@ -1444,22 +1465,14 @@ async def admin_queue_stats(user: dict = Depends(require_role("admin"))):
 
 
 @api.post("/admin/merchants/create")
-async def admin_create_merchant(body: dict, admin: dict = Depends(require_role("admin"))):
-    """Admin creates a merchant account + initial merchant profile in one step.
-    Body fields:
-      - name (str, required) - merchant name
-      - email (str, required) - merchant login email
-      - password (str, required) - initial password
-      - phone (str, optional) - admin-only note
-      - business_type (str, optional) - stored as description
-    Returns created user + merchant.
-    """
-    name = (body.get("name") or "").strip()
-    email = (body.get("email") or "").lower().strip()
-    password = body.get("password") or ""
-    phone = (body.get("phone") or "").strip()
-    business_type = (body.get("business_type") or "").strip()
-    username_input = (body.get("username") or "").strip().lower()
+async def admin_create_merchant(body: AdminCreateMerchantIn, admin: dict = Depends(require_role("admin"))):
+    """Admin creates a merchant account + initial merchant profile in one step."""
+    name = body.name.strip()
+    email = body.email.lower().strip()
+    password = body.password
+    phone = (body.phone or "").strip()
+    business_type = (body.business_type or "").strip()
+    username_input = (body.username or "").strip().lower()
     if not name or not email or not password:
         raise HTTPException(status_code=400, detail="Nama, email, dan password wajib diisi")
     if await db.users.find_one({"email": email}):
@@ -1520,9 +1533,9 @@ async def admin_delete_merchant(merchant_id: str, admin: dict = Depends(require_
 
 
 @api.post("/admin/merchants/{merchant_id}/billing")
-async def set_merchant_billing(merchant_id: str, body: dict, admin: dict = Depends(require_role("admin"))):
+async def set_merchant_billing(merchant_id: str, body: MerchantBillingSetIn, admin: dict = Depends(require_role("admin"))):
     """Set billing for a merchant using an existing merchant-targeted package."""
-    package_id = body.get("package_id")
+    package_id = body.package_id
     if not package_id:
         raise HTTPException(400, "package_id required")
     m = await db.merchants.find_one({"id": merchant_id})
