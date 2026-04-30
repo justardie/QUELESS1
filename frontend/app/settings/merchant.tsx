@@ -161,7 +161,7 @@ export default function MerchantSettings() {
             onChange={v => setForm({ ...form, logo_url: v })} testID="pick-logo"
           />
           <ImageField
-            label="FOTO HOME (tampilan di list, disarankan 1200×800 px)" value={form.photo_url}
+            label="FOTO HOME (detail merchant, disarankan 800×800 px atau portrait 800×1000 px)" value={form.photo_url}
             onChange={v => setForm({ ...form, photo_url: v })} height={140} testID="pick-photo"
           />
           <ImageField
