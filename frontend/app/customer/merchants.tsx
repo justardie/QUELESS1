@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../src/theme';
+import { iosFontFamily } from '../../src/themeContext';
 import { Card, ScreenHeader, Badge } from '../../src/ui';
 import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../src/bottomDock';
 import { api } from '../../src/api';
@@ -97,7 +98,6 @@ export default function Merchants() {
                         textColor={item.is_currently_open ? '#065F46' : '#7F1D1D'}
                       />
                       <Badge label={`${item.active_queue_count ?? 0} antrian aktif`} />
-                      {!!item.hours_text && <Badge label={item.hours_text} />}
                     </View>
                   </View>
                   <Ionicons name="chevron-forward" size={20} color={theme.colors.textMuted} />
@@ -117,12 +117,12 @@ const styles = StyleSheet.create({
   inner: { flex: 1, paddingHorizontal: 20, paddingTop: 8 },
   iconBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: theme.colors.border },
   activeCard: { backgroundColor: theme.colors.brandSoft, borderColor: theme.colors.brand, marginBottom: 14 },
-  activeLabel: { color: theme.colors.brandDark, fontWeight: '700', fontSize: 12, letterSpacing: 1 },
-  activeNumber: { fontSize: 44, fontWeight: '900', color: theme.colors.text, letterSpacing: -2, marginTop: 4 },
-  activeMerchant: { fontSize: 15, color: theme.colors.text, fontWeight: '600' },
-  activePos: { fontSize: 13, color: theme.colors.textMuted, marginTop: 2 },
+  activeLabel: { color: theme.colors.brandDark, fontWeight: '700', fontSize: 12, letterSpacing: 1, fontFamily: iosFontFamily },
+  activeNumber: { fontSize: 44, fontWeight: '900', color: theme.colors.text, letterSpacing: -2, marginTop: 4, fontFamily: iosFontFamily },
+  activeMerchant: { fontSize: 15, color: theme.colors.text, fontWeight: '600', fontFamily: iosFontFamily },
+  activePos: { fontSize: 13, color: theme.colors.textMuted, marginTop: 2, fontFamily: iosFontFamily },
   merchantCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: { width: 44, height: 44, borderRadius: 14, backgroundColor: theme.colors.brandSoft, alignItems: 'center', justifyContent: 'center' },
-  mName: { fontSize: 16, fontWeight: '700', color: theme.colors.text },
-  mDesc: { fontSize: 13, color: theme.colors.textMuted, marginTop: 2 },
+  mName: { fontSize: 16, fontWeight: '700', color: theme.colors.text, fontFamily: iosFontFamily },
+  mDesc: { fontSize: 13, color: theme.colors.textMuted, marginTop: 2, fontFamily: iosFontFamily },
 });

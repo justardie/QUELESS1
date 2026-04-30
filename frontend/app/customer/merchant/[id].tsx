@@ -110,7 +110,7 @@ export default function MerchantDetail() {
   const heroUrl = m.photo_url || m.tv_photo_url || '';
   const nowNum = tv?.now_serving?.queue_number;
   const upcomingCount = tv?.upcoming?.length || 0;
-  const isOpen = m.is_currently_open !== false;
+  const isOpen = !!m.is_currently_open;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: c.bg }]} edges={['top']}>
@@ -178,12 +178,6 @@ export default function MerchantDetail() {
               <View style={styles.infoRow}>
                 <Ionicons name="location-outline" size={16} color={c.muted} />
                 <Text style={[styles.infoText, { color: c.text, fontFamily: iosFontFamily }]}>{m.address}</Text>
-              </View>
-            )}
-            {!!m.hours_text && (
-              <View style={styles.infoRow}>
-                <Ionicons name="time-outline" size={16} color={c.muted} />
-                <Text style={[styles.infoText, { color: c.text, fontFamily: iosFontFamily }]}>{m.hours_text}</Text>
               </View>
             )}
           </Card>
