@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useColors, iosFontFamily } from '../../src/themeContext';
 import { Card, Hx, MutedText, BodyText, Button } from '../../src/ui';
 import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../src/bottomDock';
@@ -51,27 +52,34 @@ export default function SettingsHub() {
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: BOTTOM_DOCK_HEIGHT + 60 }}>
         <Header title="Pengaturan" onBack={() => router.back()} />
 
-        {/* Profile card — with active package for customer */}
-        <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: c.soft, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="person-outline" size={22} color={c.primaryDark} />
+        {/* Profile card — gradient */}
+        <LinearGradient
+          colors={[c.primary, c.primaryDark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.profileCard, { marginBottom: 16 }]}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <View style={styles.profileAvatar}>
+              <Ionicons name="person-outline" size={22} color="#fff" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.profileName, { fontFamily: iosFontFamily }]}>{user.name}</Text>
+              <Text style={[styles.profileSub, { fontFamily: iosFontFamily }]}>{user.email} · {user.role}</Text>
+              {user.role === 'customer' && activeSub && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#4ADE80' }} />
+                  <Text style={[styles.profilePackage, { fontFamily: iosFontFamily }]}>
+                    {activeSub.package_name} · {activeSub.credits_remaining} kuota tersisa
+                  </Text>
+                </View>
+              )}
+              {user.role === 'customer' && !activeSub && (
+                <Text style={[styles.profilePackage, { fontFamily: iosFontFamily }]}>Belum ada paket aktif</Text>
+              )}
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <BodyText weight="700">{user.name}</BodyText>
-            <MutedText size={13}>{user.email} • {user.role}</MutedText>
-            {user.role === 'customer' && activeSub && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: '#10b981' }} />
-                <MutedText size={12} style={{ color: '#065F46', fontWeight: '700' }}>
-                  {activeSub.package_name} · {activeSub.credits_remaining} kuota · Berakhir {activeSub.expires_at ? new Date(activeSub.expires_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
-                </MutedText>
-              </View>
-            )}
-            {user.role === 'customer' && !activeSub && (
-              <MutedText size={12} style={{ marginTop: 2 }}>Belum ada paket aktif</MutedText>
-            )}
-          </View>
-        </Card>
+        </LinearGradient>
 
         {items.filter(i => i.show).map((it, i) => (
           <TouchableOpacity
@@ -115,4 +123,16 @@ function Header({ title, onBack }: { title: string; onBack: () => void }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   iconBtn: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  profileCard: {
+    borderRadius: 20, padding: 18,
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 4,
+  },
+  profileAvatar: {
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)',
+  },
+  profileName: { fontSize: 17, fontWeight: '700', color: '#fff' },
+  profileSub: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 1 },
+  profilePackage: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.9)' },
 });
