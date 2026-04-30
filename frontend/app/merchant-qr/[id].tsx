@@ -22,8 +22,10 @@ export default function MerchantQR() {
 
   if (!m) return <View style={[s.center, { backgroundColor: c.bg }]}><ActivityIndicator color={c.primary} /></View>;
 
-  const base = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-  const url = `${base}/customer/merchant/${m.id}`;
+  const base = (Platform.OS === 'web' && typeof window !== 'undefined')
+    ? window.location.origin
+    : (process.env.EXPO_PUBLIC_APP_URL || process.env.EXPO_PUBLIC_BACKEND_URL || '');
+  const url = `${base}/customer/merchant/${m.slug || m.id}`;
   const filename = `qr-${m.name?.replace(/\s+/g, '-').toLowerCase() || m.id}.png`;
 
   function downloadQR() {
