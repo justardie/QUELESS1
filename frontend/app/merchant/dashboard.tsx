@@ -2,10 +2,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Alert, RefreshControl, ScrollView,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../src/theme';
+import { useColors, iosFontFamily } from '../../src/themeContext';
 import { Card, ScreenHeader, Badge, Button } from '../../src/ui';
 import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../src/bottomDock';
 import { api } from '../../src/api';
@@ -16,6 +18,7 @@ import { notify, promptInput } from '../../src/alerts';
 export default function MerchantDashboard() {
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const c = useColors();
   const [merchants, setMerchants] = useState<any[]>([]);
   const [selected, setSelected] = useState<any | null>(null);
   const [queue, setQueue] = useState<any[]>([]);
@@ -172,21 +175,47 @@ export default function MerchantDashboard() {
           </View>
         )}
 
-        {/* Now serving */}
-        <Card style={{ backgroundColor: theme.colors.brandSoft, borderColor: theme.colors.brand }}>
-          <Text style={styles.smallLabel}>NOW SERVING</Text>
-          <Text style={styles.bigNumber}>{called ? `#${called.queue_number}` : '—'}</Text>
-          {called && <Text style={styles.sub}>{called.customer_name}{called.category_name && called.category_name !== 'Umum' ? ` • ${called.category_name}` : ''}</Text>}
+        {/* Now serving — gradient card */}
+        <LinearGradient
+          colors={[c.primary, c.primaryDark]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.nowServingCard}
+        >
+          <View style={styles.nowServingOrb} />
+          <Text style={[styles.smallLabel, { color: 'rgba(255,255,255,0.75)', fontFamily: iosFontFamily }]}>NOW SERVING</Text>
+          <Text style={[styles.bigNumber, { color: '#fff', fontFamily: iosFontFamily }]}>{called ? `#${called.queue_number}` : '—'}</Text>
+          {called && (
+            <Text style={[styles.sub, { color: 'rgba(255,255,255,0.9)', fontFamily: iosFontFamily }]}>
+              {called.customer_name}{called.category_name && called.category_name !== 'Umum' ? ` · ${called.category_name}` : ''}
+            </Text>
+          )}
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
-            <Button testID="call-prev-button" label="Panggil sebelumnya" variant="secondary" onPress={onCallPrev} style={{ flex: 1, minWidth: 130 }} />
-            <Button testID="call-next-button" label="Panggil berikutnya" onPress={onCallNext} style={{ flex: 1, minWidth: 130 }} />
+            <TouchableOpacity
+              testID="call-prev-button"
+              onPress={onCallPrev}
+              style={styles.nowBtn}
+            >
+              <Text style={[styles.nowBtnText, { fontFamily: iosFontFamily }]}>← Sebelumnya</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              testID="call-next-button"
+              onPress={onCallNext}
+              style={[styles.nowBtn, styles.nowBtnPrimary]}
+            >
+              <Text style={[styles.nowBtnText, { color: c.primaryDark, fontFamily: iosFontFamily }]}>Berikutnya →</Text>
+            </TouchableOpacity>
           </View>
           {called && (
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
-              <Button testID="skip-current-button" label="Lewati" variant="danger" onPress={() => onSkip(called.id)} style={{ flex: 1 }} />
-            </View>
+            <TouchableOpacity
+              testID="skip-current-button"
+              onPress={() => onSkip(called.id)}
+              style={[styles.nowBtn, styles.nowBtnSkip, { marginTop: 8 }]}
+            >
+              <Text style={[styles.nowBtnText, { fontFamily: iosFontFamily }]}>Lewati / Skip</Text>
+            </TouchableOpacity>
           )}
-        </Card>
+        </LinearGradient>
 
         {/* Status buka toggle — service_enabled removed per user request (Services feature fully dropped) */}
         {selected && (
@@ -286,9 +315,22 @@ const styles = StyleSheet.create({
   merchPillActive: { backgroundColor: theme.colors.brandSoft, borderColor: theme.colors.brand },
   merchPillText: { color: theme.colors.text, fontWeight: '700' },
   merchPillTextActive: { color: theme.colors.brandDark },
-  smallLabel: { fontSize: 12, color: theme.colors.brandDark, fontWeight: '800', letterSpacing: 2 },
-  bigNumber: { fontSize: 64, fontWeight: '900', color: theme.colors.text, letterSpacing: -3, marginTop: 4 },
-  sub: { color: theme.colors.text, fontWeight: '600', marginTop: 2 },
+  nowServingCard: {
+    borderRadius: 20, padding: 20, marginBottom: 12, overflow: 'hidden',
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 16, shadowOffset: { width: 0, height: 4 }, elevation: 5,
+  },
+  nowServingOrb: { position: 'absolute', right: -20, top: -20, width: 100, height: 100, borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.08)' },
+  nowBtn: {
+    flex: 1, height: 40, borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  nowBtnPrimary: { backgroundColor: 'rgba(255,255,255,0.95)', borderColor: 'transparent' },
+  nowBtnSkip: { backgroundColor: 'rgba(255,59,48,0.3)', borderColor: 'rgba(255,59,48,0.5)', flex: undefined, width: '100%' },
+  nowBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  smallLabel: { fontSize: 12, fontWeight: '800', letterSpacing: 2 },
+  bigNumber: { fontSize: 64, fontWeight: '900', letterSpacing: -3, marginTop: 4 },
+  sub: { fontWeight: '600', marginTop: 2 },
   section: { fontSize: 13, fontWeight: '700', color: theme.colors.textMuted, marginTop: 20, marginBottom: 10, letterSpacing: 1, textTransform: 'uppercase' },
   catRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: theme.colors.border },
   catName: { fontSize: 15, fontWeight: '600', color: theme.colors.text },

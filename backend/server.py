@@ -664,6 +664,11 @@ async def list_merchants():
         data["active_queue_count"] = await db.queue_entries.count_documents(
             {"merchant_id": m.get("id", ""), "status": {"$in": ["waiting", "called"]}}
         )
+        now_serving = await db.queue_entries.find_one(
+            {"merchant_id": m.get("id", ""), "status": "called"},
+            {"queue_number": 1, "_id": 0}, sort=[("called_at", -1)],
+        )
+        data["now_serving_number"] = now_serving["queue_number"] if now_serving else None
         out.append(data)
     return out
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image, Dimensions, Modal, TextInput, Platform, KeyboardAvoidingView,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Image, Modal, TextInput, Platform, KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -12,8 +12,7 @@ import { BottomDock, BOTTOM_DOCK_HEIGHT } from '../../../src/bottomDock';
 import { api } from '../../../src/api';
 import { useAuth } from '../../../src/auth';
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get('window');
-const HERO_H = Math.round(Math.min(SCREEN_H * 0.62, 520));
+const HERO_H = 280;
 
 export default function MerchantDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -182,7 +181,20 @@ export default function MerchantDetail() {
             )}
           </Card>
 
-          {/* Services section REMOVED globally — fokus antrian saja per user request */}
+          {/* Stats grid */}
+          <View style={styles.statsGrid}>
+            {[
+              { label: 'Dilayani Sekarang', value: nowNum ? `#${nowNum}` : '—', icon: 'flag' },
+              { label: 'Dalam Antrian', value: `${upcomingCount}`, icon: 'people' },
+              { label: 'Est. Tunggu', value: `~${upcomingCount * 5} mnt`, icon: 'time' },
+            ].map((stat) => (
+              <View key={stat.label} style={[styles.statCard, { backgroundColor: '#fff' }]}>
+                <Ionicons name={stat.icon as any} size={18} color={c.primaryDark} style={{ marginBottom: 6 }} />
+                <Text style={[styles.statValue, { color: c.text, fontFamily: iosFontFamily }]}>{stat.value}</Text>
+                <Text style={[styles.statLabel, { color: c.muted, fontFamily: iosFontFamily }]}>{stat.label}</Text>
+              </View>
+            ))}
+          </View>
         </View>
       </ScrollView>
 
@@ -301,6 +313,13 @@ const styles = StyleSheet.create({
   radio: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   footer: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 20, borderTopWidth: 1, borderTopColor: 'rgba(15,23,42,0.06)' },
   subBanner: { flexDirection: 'row', alignItems: 'center', padding: 10, borderRadius: 10, borderWidth: 1, marginBottom: 10 },
+  statsGrid: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  statCard: {
+    flex: 1, borderRadius: 16, padding: 14, alignItems: 'center',
+    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 1,
+  },
+  statValue: { fontSize: 20, fontWeight: '800', letterSpacing: -0.5 },
+  statLabel: { fontSize: 10, marginTop: 2, textAlign: 'center', lineHeight: 14 },
   modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
   modalCard: { padding: 20, borderRadius: 20, elevation: 8 },
   modalInput: { marginTop: 12, height: 48, borderWidth: 1, borderColor: 'rgba(15,23,42,0.1)', borderRadius: 12, paddingHorizontal: 14, fontSize: 16 },
