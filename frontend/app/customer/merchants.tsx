@@ -92,7 +92,9 @@ export default function Merchants() {
                     <Text style={[s.bannerSub, { fontFamily: iosFontFamily }]}>
                       Posisi {mine[0].position + 1} • ~{mine[0].estimated_wait_minutes} menit lagi
                     </Text>
-                    <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" style={s.bannerChevron} />
+                    <View style={s.bannerChevron}>
+                      <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.6)" />
+                    </View>
                   </LinearGradient>
                 </TouchableOpacity>
               ) : null
@@ -115,7 +117,12 @@ export default function Merchants() {
                     {item.photo_url ? (
                       <Image source={{ uri: item.photo_url }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
                     ) : (
-                      <LinearGradient colors={[c.primary, c.primaryDark]} style={StyleSheet.absoluteFillObject} />
+                      <>
+                        <LinearGradient colors={[c.primary, c.primaryDark]} style={StyleSheet.absoluteFillObject} />
+                        <View style={[StyleSheet.absoluteFillObject, { alignItems: 'center', justifyContent: 'center' }]}>
+                          <Ionicons name="storefront-outline" size={44} color="rgba(255,255,255,0.45)" />
+                        </View>
+                      </>
                     )}
                     <LinearGradient
                       colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0)', 'rgba(0,0,0,0.32)']}
@@ -188,12 +195,12 @@ const s = StyleSheet.create({
   bannerNum: { fontSize: 52, fontWeight: '900', color: '#fff', letterSpacing: -2, lineHeight: 56, marginTop: 2 },
   bannerMerchant: { fontSize: 15, fontWeight: '600', color: '#fff', marginTop: 4 },
   bannerSub: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
-  bannerChevron: { position: 'absolute', right: 16, top: 48 },
+  bannerChevron: { position: 'absolute', right: 16, top: 0, bottom: 0, justifyContent: 'center' },
   card: {
     borderRadius: 18, overflow: 'hidden',
     shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 16, shadowOffset: { width: 0, height: 2 }, elevation: 2,
   },
-  heroWrap: { height: 150, position: 'relative', backgroundColor: '#E5E7EB' },
+  heroWrap: { height: 150, overflow: 'hidden', backgroundColor: '#E5E7EB' },
   nowBadge: {
     position: 'absolute', bottom: 10, left: 12,
     backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 10, padding: 6, paddingHorizontal: 12,

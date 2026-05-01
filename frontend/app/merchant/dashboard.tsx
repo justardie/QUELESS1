@@ -210,7 +210,7 @@ export default function MerchantDashboard() {
             <TouchableOpacity
               testID="skip-current-button"
               onPress={() => onSkip(called.id)}
-              style={[styles.nowBtn, styles.nowBtnSkip, { marginTop: 8 }]}
+              style={[styles.nowBtnSkip, { marginTop: 8 }]}
             >
               <Text style={[styles.nowBtnText, { fontFamily: iosFontFamily }]}>Lewati / Skip</Text>
             </TouchableOpacity>
@@ -326,7 +326,10 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   nowBtnPrimary: { backgroundColor: 'rgba(255,255,255,0.95)', borderColor: 'transparent' },
-  nowBtnSkip: { backgroundColor: 'rgba(255,59,48,0.3)', borderColor: 'rgba(255,59,48,0.5)', flex: undefined, width: '100%' },
+  nowBtnSkip: {
+    height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,59,48,0.3)', borderWidth: 1, borderColor: 'rgba(255,59,48,0.5)',
+  },
   nowBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   smallLabel: { fontSize: 12, fontWeight: '800', letterSpacing: 2 },
   bigNumber: { fontSize: 64, fontWeight: '900', letterSpacing: -3, marginTop: 4 },
